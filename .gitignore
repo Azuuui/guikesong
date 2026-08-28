@@ -1,0 +1,16 @@
+# 本地系统文件
+.DS_Store
+
+# 运行时参考素材：后端持久保存，但不提交到代码仓库
+data/reference-assets/*
+!data/reference-assets/.gitkeep
+
+# 本地环境配置
+.env
+.env.*
+!.env.example
+
+# 依赖与构建产物
+node_modules/
+dist/
+coverage/
