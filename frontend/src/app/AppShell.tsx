@@ -52,6 +52,7 @@ export function AppShell() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const drawerCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const pageTitle = getCurrentPageTitle(location.pathname);
   const providerMode = (
@@ -62,6 +63,20 @@ export function AppShell() {
   useEffect(() => {
     setIsMobileNavigationOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const desktopBreakpoint = window.matchMedia('(min-width: 768px)');
+
+    function closeDrawerAtDesktop(event: MediaQueryListEvent) {
+      if (!event.matches || !isMobileNavigationOpen) return;
+
+      setIsMobileNavigationOpen(false);
+      queueMicrotask(() => mainRef.current?.focus());
+    }
+
+    desktopBreakpoint.addEventListener('change', closeDrawerAtDesktop);
+    return () => desktopBreakpoint.removeEventListener('change', closeDrawerAtDesktop);
+  }, [isMobileNavigationOpen]);
 
   useEffect(() => {
     if (!isMobileNavigationOpen) return;
@@ -186,7 +201,7 @@ export function AppShell() {
         </>
       ) : null}
 
-      <main className="app-shell__main">
+      <main className="app-shell__main" ref={mainRef} tabIndex={-1}>
         <div className="app-shell__content">
           <Outlet />
         </div>

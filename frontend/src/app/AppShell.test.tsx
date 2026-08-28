@@ -1,9 +1,45 @@
-import {render, screen, within} from '@testing-library/react';
+import {act, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
-import {describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {AppShell} from './AppShell';
 import {appRouter} from './AppRouter';
+
+function createMatchMediaController() {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  const mediaQueryList = {
+    matches: false,
+    media: '(min-width: 768px)',
+    onchange: null,
+    addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) =>
+      listeners.add(listener),
+    removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) =>
+      listeners.delete(listener),
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => true,
+  } as MediaQueryList;
+
+  return {
+    matchMedia: vi.fn(() => mediaQueryList),
+    setMatches(matches: boolean) {
+      Object.defineProperty(mediaQueryList, 'matches', {configurable: true, value: matches});
+      const event = {matches, media: mediaQueryList.media} as MediaQueryListEvent;
+      listeners.forEach((listener) => listener(event));
+    },
+  };
+}
+
+let matchMediaController: ReturnType<typeof createMatchMediaController>;
+
+beforeEach(() => {
+  matchMediaController = createMatchMediaController();
+  vi.stubGlobal('matchMedia', matchMediaController.matchMedia);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function renderShell(initialEntry: string) {
   const router = createMemoryRouter(
@@ -83,5 +119,22 @@ describe('AppShell', () => {
 
     expect(screen.queryByRole('dialog', {name: '移动导航抽屉'})).not.toBeInTheDocument();
     expect(menuButton).toHaveFocus();
+  });
+
+  it('进入桌面断点时关闭移动抽屉并清理模态副作用', async () => {
+    const user = userEvent.setup();
+    renderShell('/');
+
+    const menuButton = screen.getByRole('button', {name: '打开导航'});
+    await user.click(menuButton);
+    expect(screen.getByRole('dialog', {name: '移动导航抽屉'})).toBeVisible();
+    expect(document.body).toHaveStyle({overflow: 'hidden'});
+
+    await act(async () => matchMediaController.setMatches(true));
+
+    expect(screen.queryByRole('dialog', {name: '移动导航抽屉'})).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+    expect(screen.getByRole('main')).toHaveFocus();
+    expect(menuButton).not.toHaveFocus();
   });
 });

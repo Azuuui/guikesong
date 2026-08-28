@@ -27,19 +27,16 @@ export function ConfirmDialog({
   const cancelRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const descriptionId = useId();
-  const supportsNativeModal =
-    typeof HTMLDialogElement !== 'undefined' &&
-    typeof HTMLDialogElement.prototype.showModal === 'function';
 
   useEffect(() => {
     if (!isOpen) return;
 
     const dialog = dialogRef.current;
-    if (dialog && !dialog.open && supportsNativeModal) {
+    if (dialog && !dialog.open) {
       dialog.showModal();
     }
     queueMicrotask(() => cancelRef.current?.focus());
-  }, [isOpen, supportsNativeModal]);
+  }, [isOpen]);
 
   function restoreTriggerFocus() {
     queueMicrotask(() => triggerRef.current?.focus());
@@ -98,7 +95,6 @@ export function ConfirmDialog({
             setIsOpen(false);
             restoreTriggerFocus();
           }}
-          open={!supportsNativeModal}
           ref={dialogRef}
         >
           <div className="confirm-dialog__header">

@@ -1,8 +1,47 @@
 import {act, fireEvent, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {Button} from './Button';
 import {ConfirmDialog} from './ConfirmDialog';
+
+let showModal: ReturnType<typeof vi.fn>;
+let closeDialog: ReturnType<typeof vi.fn>;
+const originalShowModal = Object.getOwnPropertyDescriptor(
+  HTMLDialogElement.prototype,
+  'showModal',
+);
+const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
+
+beforeEach(() => {
+  showModal = vi.fn(function showModalShim(this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  closeDialog = vi.fn(function closeDialogShim(this: HTMLDialogElement) {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: showModal,
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value: closeDialog,
+  });
+});
+
+afterEach(() => {
+  if (originalShowModal) {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', originalShowModal);
+  } else {
+    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).showModal;
+  }
+  if (originalClose) {
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
+  } else {
+    delete (HTMLDialogElement.prototype as Partial<HTMLDialogElement>).close;
+  }
+});
 
 describe('UI primitives', () => {
   it('loading button keeps the action disabled and exposes its label', () => {
@@ -33,6 +72,7 @@ describe('UI primitives', () => {
 
     const dialog = screen.getByRole('dialog');
     const cancelButton = within(dialog).getByRole('button', {name: '取消'});
+    expect(showModal).toHaveBeenCalledOnce();
     expect(screen.getByRole('heading', {name: '删除这条本机历史？'})).toBeVisible();
     expect(cancelButton).toHaveFocus();
     await user.click(cancelButton);
@@ -60,6 +100,7 @@ describe('UI primitives', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+    expect(closeDialog).toHaveBeenCalledOnce();
   });
 
   it('confirm dialog disables closing actions while awaiting confirmation', async () => {
@@ -95,5 +136,6 @@ describe('UI primitives', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+    expect(closeDialog).toHaveBeenCalledOnce();
   });
 });
