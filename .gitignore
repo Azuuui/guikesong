@@ -14,3 +14,7 @@ data/reference-assets/*
 node_modules/
 dist/
 coverage/
+node_modules
+dist
+data/reference-assets
+.env
