@@ -1,7 +1,7 @@
-# project002文旅营销素材生成介绍
+# guikesong介绍
 
 > 最后更新：2026-08-28
-> 项目路径：/Users/azu/Desktop/workspace/project002文旅营销素材生成
+> 项目路径：/Users/azu/Documents/guikesong
 
 ## 一句话说明项目
 
@@ -15,16 +15,16 @@
 
 ## 当前阶段
 
-PRD 已确认，尚未开始代码实施，等待进入执行会话。
+PRD 已确认，前后端基础工程、四类模板、Mock 生成链路、参考图上传、结果展示、复制下载和本机历史已经完成，可进入运行验收与真实模型接入阶段。
 
 ## 项目目录导航
 
 - `docs/superpowers/specs/`：已确认的产品与技术设计
 - `docs/superpowers/plans/`：实施计划
 - `tasks/`：可勾选的主 PRD、上下文和分阶段执行文件
-- `frontend/`：前端界面（待创建）
-- `backend/`：后端 API、模板和模型适配器（待创建）
-- `shared/`：前后端共享类型（待创建）
+- `frontend/`：React + TypeScript 前端界面
+- `backend/`：后端 API、模板、编排和模型适配器
+- `shared/`：前后端共享类型
 - `data/reference-assets/`：后端持久参考素材目录（运行时创建，禁止提交 Git）
 
 ## 全局关键边界
@@ -43,4 +43,4 @@ PRD 已确认，尚未开始代码实施，等待进入执行会话。
 
 ## 下一步建议
 
-由执行会话按阶段完成基础工程、模板路由、占位生成器、结果展示和端到端冒烟测试。
+在新目录运行完整检查和浏览器验收；随后由执行会话接入正式提示词与真实模型 Provider，并保持现有 Mock 模式作为本地回归路径。
