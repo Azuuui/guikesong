@@ -12,13 +12,13 @@ const REQUEST: GenerateRequest = {
 };
 
 /** 最小合法终态结果：共享守卫只校验对象存在且 workflowId 一致。 */
-const RESULT: GenerateResult = {
+const RESULT = {
   requestId: 'job-1',
   workflowId: 'xhs-atlas',
   status: 'succeeded',
   pages: [],
   warnings: [],
-} as GenerateResult;
+} as unknown as GenerateResult;
 
 function jobPath(baseDir: string, jobId: string): string {
   return path.join(baseDir, `${jobId}.json`);
