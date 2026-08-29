@@ -5,6 +5,7 @@ import {
   ACTIVE_JOB_ID_STORAGE_KEY,
   generationJobRepository,
   readActiveJobId,
+  withGenerationCreationLease,
 } from './generationJobRepository';
 
 const REQUEST: GenerateRequest = {
@@ -142,5 +143,53 @@ describe('generation job repository', () => {
   it('无活动任务时 get 返回 undefined', async () => {
     expect(await generationJobRepository.get()).toBeUndefined();
     expect(readActiveJobId()).toBeNull();
+  });
+
+  it('IndexedDB 记录丢失时可用轻量降级记录恢复同一 jobId', async () => {
+    await generationJobRepository.put({
+      jobId: 'job-fallback',
+      request: REQUEST,
+      userPrompt: '2个贵州景点',
+      referenceFiles: [makeStoredReferenceFile()],
+      historySaved: false,
+    });
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase('qianscape-generation-job');
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+
+    expect(await generationJobRepository.get()).toMatchObject({
+      jobId: 'job-fallback',
+      request: REQUEST,
+      userPrompt: '2个贵州景点',
+      referenceFiles: [],
+    });
+    expect(readActiveJobId()).toBe('job-fallback');
+  });
+
+  it('IndexedDB 创建租约会串行执行并发操作', async () => {
+    const order: string[] = [];
+    let releaseFirst!: () => void;
+    let firstEntered!: () => void;
+    const firstReady = new Promise<void>(resolve => { firstEntered = resolve; });
+    const firstGate = new Promise<void>(resolve => { releaseFirst = resolve; });
+
+    const first = withGenerationCreationLease(async () => {
+      order.push('first-start');
+      firstEntered();
+      await firstGate;
+      order.push('first-end');
+    });
+    await firstReady;
+    const second = withGenerationCreationLease(async () => {
+      order.push('second');
+    });
+    await Promise.resolve();
+    expect(order).toEqual(['first-start']);
+
+    releaseFirst();
+    await Promise.all([first, second]);
+    expect(order).toEqual(['first-start', 'first-end', 'second']);
   });
 });

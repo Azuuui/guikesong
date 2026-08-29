@@ -143,6 +143,35 @@ describe('generation job store', () => {
     expect(await reopened.get('job-1')).toBeDefined();
   });
 
+  it('长期运行时创建新任务会同步清理超过 24 小时的旧任务', async () => {
+    let now = new Date('2026-08-30T00:00:00.000Z');
+    const store = new GenerationJobStore(baseDir, {now: () => now});
+    await store.create({jobId: 'job-old', request: REQUEST});
+
+    now = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    await store.create({jobId: 'job-new', request: REQUEST});
+
+    expect(await store.get('job-old')).toBeUndefined();
+    expect(await store.get('job-new')).toBeDefined();
+  });
+
+  it('同一任务的并发 update 按调用顺序串行写入', async () => {
+    const store = new GenerationJobStore(baseDir);
+    await store.create({jobId: 'job-1', request: REQUEST});
+
+    const first = store.update('job-1', current => ({
+      ...current,
+      snapshot: {...current.snapshot, completedImages: 1, totalImages: 2},
+    }));
+    const second = store.update('job-1', current => ({
+      ...current,
+      snapshot: {...current.snapshot, completedImages: current.snapshot.completedImages + 1, totalImages: 2},
+    }));
+    await Promise.all([first, second]);
+
+    expect((await store.get('job-1'))?.snapshot.completedImages).toBe(2);
+  });
+
   it('损坏的任务文件返回 undefined 并留下日志', async () => {
     const store = new GenerationJobStore(baseDir);
     await store.ready;

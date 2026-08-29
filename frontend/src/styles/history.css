@@ -48,6 +48,10 @@
   background: #12805c;
 }
 
+.history-job-summary--failed .history-job-summary__dot {
+  background: var(--color-error-600, #b42318);
+}
+
 @keyframes history-job-summary__pulse {
   0%,
   100% {

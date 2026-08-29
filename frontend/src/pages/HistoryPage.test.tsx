@@ -1,4 +1,4 @@
-import {fireEvent,render,screen} from '@testing-library/react';
+import {fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MemoryRouter,Route,Routes,useLocation} from 'react-router-dom';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import type {GenerationJobSnapshot} from '../../../shared/generationJobs';
@@ -91,7 +91,8 @@ describe('HistoryPage',()=>{
 
     fireEvent.click(screen.getByRole('button',{name:'启动任务'}));
 
-    expect(await screen.findByTestId('history-job-summary')).toHaveTextContent('正在生成图片');
+    const summary=await screen.findByTestId('history-job-summary');
+    await waitFor(()=>expect(summary).toHaveTextContent('正在生成图片'));
   });
 
   it('终态任务在摘要中提供查看结果入口并跳转结果页',async()=>{
@@ -102,5 +103,18 @@ describe('HistoryPage',()=>{
     fireEvent.click(await screen.findByRole('button',{name:'查看结果'}));
 
     expect(await screen.findByTestId('route-location')).toHaveTextContent('/results/job-1');
+  });
+
+  it('失败任务摘要使用失败语义而不是成功终态样式',async()=>{
+    getGenerationJobMock.mockResolvedValue(makeSnapshot({
+      status:'failed',
+      error:{code:'UPSTREAM_ERROR',message:'生成失败，请稍后重试'},
+    }));
+    renderPage(true);
+
+    fireEvent.click(screen.getByRole('button',{name:'启动任务'}));
+    const summary=await screen.findByTestId('history-job-summary');
+    await waitFor(()=>expect(summary).toHaveClass('history-job-summary--failed'));
+    expect(summary).toHaveTextContent('生成失败，请稍后重试');
   });
 });

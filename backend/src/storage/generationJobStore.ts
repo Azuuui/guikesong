@@ -58,6 +58,7 @@ export class GenerationJobStore {
   private readonly baseDir: string;
   private readonly now: () => Date;
   private readonly retentionMs: number;
+  private readonly updateQueues = new Map<string, Promise<void>>();
 
   constructor(baseDir: string, options: GenerationJobStoreOptions = {}) {
     this.baseDir = baseDir;
@@ -113,6 +114,8 @@ export class GenerationJobStore {
   async create(input: {jobId: string; request: GenerateRequest}): Promise<GenerationJobRecord> {
     await this.ready;
     assertSafeJobId(input.jobId);
+    // 长期运行的服务也按创建节奏清理，避免只在重启时释放过期任务。
+    await this.cleanupFiles();
     const now = this.now().toISOString();
     const record: GenerationJobRecord = {
       request: input.request,
@@ -145,13 +148,23 @@ export class GenerationJobStore {
   ): Promise<GenerationJobRecord> {
     await this.ready;
     assertSafeJobId(jobId);
-    const current = await this.readRecord(jobId);
-    if (!current) {
-      throw new ApiError(404, '任务不存在或已过期', 'JOB_NOT_FOUND');
+    const previous = this.updateQueues.get(jobId) ?? Promise.resolve();
+    const operation = previous.then(async () => {
+      const current = await this.readRecord(jobId);
+      if (!current) {
+        throw new ApiError(404, '任务不存在或已过期', 'JOB_NOT_FOUND');
+      }
+      const next = mutate(current);
+      await this.writeRecord(next);
+      return next;
+    });
+    const settled = operation.then(() => undefined, () => undefined);
+    this.updateQueues.set(jobId, settled);
+    try {
+      return await operation;
+    } finally {
+      if (this.updateQueues.get(jobId) === settled) this.updateQueues.delete(jobId);
     }
-    const next = mutate(current);
-    await this.writeRecord(next);
-    return next;
   }
 
   /** 将启动时遗留的非终态任务收敛为安全失败终态。 */

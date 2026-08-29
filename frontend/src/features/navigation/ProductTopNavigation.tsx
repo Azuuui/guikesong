@@ -16,7 +16,7 @@ function GenerationJobIndicator(){
   const terminal=activeJob.status==='succeeded'||activeJob.status==='partial'||activeJob.status==='failed';
   if(terminal&&resultViewed) return null;
 
-  const state=terminal?'complete':'running';
+  const state=activeJob.status==='failed'?'failed':terminal?'complete':'running';
   return (
     <span
       className={`product-top-navigation__job-dot product-top-navigation__job-dot--${state}`}
@@ -24,7 +24,7 @@ function GenerationJobIndicator(){
       data-testid="generation-job-indicator"
     >
       <span className="product-top-navigation__job-dot-text">
-        {state==='running'?'素材正在生成':'素材生成完成'}
+        {state==='running'?'素材正在生成':state==='failed'?'素材生成失败':'素材生成完成'}
       </span>
     </span>
   );

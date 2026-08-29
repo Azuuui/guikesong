@@ -34,8 +34,8 @@ function isTerminal(status:GenerationJobSnapshot['status']):boolean{
 function runningText(job:GenerationJobSnapshot):string{
   if(job.phase==='images'){
     if(job.totalImages<=0) return GENERATION_JOB_PHASE_LABELS.images;
-    const current=Math.min(job.completedImages+1,job.totalImages);
-    return `正在生成图片 ${current}/${job.totalImages}`;
+    const completed=Math.min(job.completedImages,job.totalImages);
+    return `正在生成图片 ${completed}/${job.totalImages}`;
   }
   return GENERATION_JOB_PHASE_LABELS[job.phase];
 }

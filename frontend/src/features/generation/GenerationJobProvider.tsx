@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import {useNavigate} from 'react-router-dom';
+import {useLocation, useNavigate} from 'react-router-dom';
 import type {
   CreateGenerationJobResponse,
   GenerationJobSnapshot,
@@ -20,6 +20,7 @@ import {ApiError} from './api';
 import {
   generationJobRepository,
   readActiveJobId,
+  withGenerationCreationLease,
   type ActiveGenerationSubmission,
 } from './generationJobRepository';
 import {createGenerationJob, getGenerationJob} from './generationJobsApi';
@@ -60,13 +61,13 @@ async function saveGenerationHistory({
 
 export type GenerationJobDependencies = {
   createGenerationJob: (request: GenerateRequest) => Promise<CreateGenerationJobResponse>;
-  getGenerationJob: (jobId: string) => Promise<GenerationJobSnapshot>;
+  getGenerationJob: (jobId: string, signal?: AbortSignal) => Promise<GenerationJobSnapshot>;
   saveHistory: (input: SaveGenerationHistoryInput) => Promise<void>;
 };
 
 const DEFAULT_DEPENDENCIES: GenerationJobDependencies = {
   createGenerationJob: request => createGenerationJob(request),
-  getGenerationJob: jobId => getGenerationJob(jobId),
+  getGenerationJob: (jobId, signal) => getGenerationJob(jobId, signal),
   saveHistory: saveGenerationHistory,
 };
 
@@ -89,6 +90,37 @@ export type GenerationJobContextValue = {
 };
 
 const GenerationJobContext = createContext<GenerationJobContextValue | null>(null);
+const GENERATION_START_LOCK = 'qianscape-generation-start';
+const VIEWED_JOB_STORAGE_KEY = 'qianscape-generation-job-viewed';
+let localStartQueue: Promise<void> = Promise.resolve();
+
+function withLocalStartLock<T>(action: () => Promise<T>): Promise<T> {
+  const run = localStartQueue.then(action, action);
+  localStartQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+async function withGenerationStartLock<T>(action: () => Promise<T>): Promise<T> {
+  return withLocalStartLock(async () => {
+    const locks = navigator.locks;
+    if (!locks) return withGenerationCreationLease(action);
+    return locks.request(GENERATION_START_LOCK, {mode: 'exclusive'}, action);
+  });
+}
+
+function deferred(): {promise: Promise<void>; resolve: () => void} {
+  let resolve: () => void = () => {};
+  const promise = new Promise<void>(done => { resolve = done; });
+  return {promise, resolve};
+}
+
+function readViewedJobId(): string | null {
+  try { return localStorage.getItem(VIEWED_JOB_STORAGE_KEY); } catch { return null; }
+}
+
+function clearViewedJobId(): void {
+  try { localStorage.removeItem(VIEWED_JOB_STORAGE_KEY); } catch { /* storage may be disabled */ }
+}
 
 export function useGenerationJob(): GenerationJobContextValue {
   const value = useContext(GenerationJobContext);
@@ -112,6 +144,7 @@ export function GenerationJobProvider({
   dependencies = DEFAULT_DEPENDENCIES,
 }: GenerationJobProviderProps) {
   const navigate = useNavigate();
+  const {pathname} = useLocation();
   const [activeJob, setActiveJob] = useState<GenerationJobSnapshot | null>(null);
   const [connectionState, setConnectionState] = useState<GenerationJobConnectionState>('idle');
   const [historySaveWarning, setHistorySaveWarning] = useState<string>();
@@ -129,6 +162,7 @@ export function GenerationJobProvider({
   /** 任务代数：新任务开始后，旧任务的迟到响应与恢复流程全部作废。 */
   const pollGenerationRef = useRef(0);
   const mountedRef = useRef(true);
+  const restoreReadyRef = useRef(deferred());
 
   function clearPollTimer() {
     if (pollTimerRef.current !== undefined) {
@@ -149,9 +183,16 @@ export function GenerationJobProvider({
   }
 
   function applySnapshot(snapshot: GenerationJobSnapshot) {
+    const changedJob = activeJobIdRef.current !== snapshot.jobId;
     activeJobRef.current = snapshot;
     activeJobIdRef.current = snapshot.jobId;
     setActiveJob(snapshot);
+    if (changedJob) setResultViewed(readViewedJobId() === snapshot.jobId);
+  }
+
+  function markResultViewed(jobId: string) {
+    try { localStorage.setItem(VIEWED_JOB_STORAGE_KEY, jobId); } catch { /* storage may be disabled */ }
+    setResultViewed(true);
   }
 
   function clearActiveJob() {
@@ -190,7 +231,7 @@ export function GenerationJobProvider({
     const controller = new AbortController();
     pollAbortRef.current = controller;
     try {
-      const snapshot = await dependenciesRef.current.getGenerationJob(jobId);
+      const snapshot = await dependenciesRef.current.getGenerationJob(jobId, controller.signal);
       if (!mountedRef.current || controller.signal.aborted) return;
       if (generation !== pollGenerationRef.current) return;
 
@@ -228,43 +269,68 @@ export function GenerationJobProvider({
   }
 
   async function startGeneration(submission: StartGenerationInput): Promise<void> {
-    const current = activeJobRef.current;
-    if (current && !isTerminalStatus(current.status)) {
-      throw new ApiError(0, '已有生成任务正在进行，请等待完成后再发起新的生成。');
-    }
+    await restoreReadyRef.current.promise;
+    return withGenerationStartLock(async () => {
+      const current = activeJobRef.current;
+      if (current && !isTerminalStatus(current.status)) {
+        throw new ApiError(0, '已有生成任务正在进行，请等待完成后再发起新的生成。');
+      }
 
-    const created = await dependenciesRef.current.createGenerationJob(submission.request);
+      const discoveredSubmission = await generationJobRepository.get();
+      const discoveredJobId = readActiveJobId() ?? discoveredSubmission?.jobId ?? null;
+      if (discoveredJobId && discoveredJobId !== current?.jobId) {
+        try {
+          const discovered = await dependenciesRef.current.getGenerationJob(discoveredJobId);
+          if (!isTerminalStatus(discovered.status)) {
+            throw new ApiError(0, '已有生成任务正在进行，请等待完成后再发起新的生成。');
+          }
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 404)) throw error;
+          await generationJobRepository.clear();
+        }
+      }
 
-    pollGenerationRef.current += 1;
-    clearPollTimer();
-    pollAbortRef.current?.abort();
-    const saved = await generationJobRepository.put({
-      jobId: created.jobId,
-      request: submission.request,
-      userPrompt: submission.userPrompt,
-      referenceFiles: submission.referenceFiles,
-      historySaved: false,
-      createdAt: created.createdAt,
+      const created = await dependenciesRef.current.createGenerationJob(submission.request);
+      const queued: GenerationJobSnapshot = {
+        jobId: created.jobId,
+        workflowId: submission.request.workflowId,
+        status: 'queued',
+        phase: 'preparing',
+        completedImages: 0,
+        totalImages: 0,
+        createdAt: created.createdAt,
+        updatedAt: created.createdAt,
+        result: null,
+        error: null,
+      };
+
+      pollGenerationRef.current += 1;
+      clearPollTimer();
+      pollAbortRef.current?.abort();
+      failureCountRef.current = 0;
+      setHistorySaveWarning(undefined);
+      setResultViewed(false);
+      clearViewedJobId();
+      setJobExpired(false);
+      setConnectionState('connected');
+      applySnapshot(queued);
+
+      const localSubmission: ActiveGenerationSubmission = {
+        jobId: created.jobId,
+        request: submission.request,
+        userPrompt: submission.userPrompt,
+        referenceFiles: submission.referenceFiles,
+        historySaved: false,
+        createdAt: created.createdAt,
+      };
+      submissionRef.current = localSubmission;
+      try {
+        submissionRef.current = await generationJobRepository.put(localSubmission);
+      } catch {
+        // 后端已接单时，本地持久化失败不得中断当前轮询或隐藏结果。
+      }
+      void poll();
     });
-    submissionRef.current = saved;
-    failureCountRef.current = 0;
-    setHistorySaveWarning(undefined);
-    setResultViewed(false);
-    setJobExpired(false);
-    setConnectionState('connected');
-    applySnapshot({
-      jobId: created.jobId,
-      workflowId: submission.request.workflowId,
-      status: 'queued',
-      phase: 'preparing',
-      completedImages: 0,
-      totalImages: 0,
-      createdAt: created.createdAt,
-      updatedAt: created.createdAt,
-      result: null,
-      error: null,
-    });
-    void poll();
   }
 
   async function retryHistorySave(): Promise<void> {
@@ -279,7 +345,7 @@ export function GenerationJobProvider({
     const job = activeJobRef.current;
     if (!job?.result) return;
     const submission = submissionRef.current;
-    setResultViewed(true);
+    markResultViewed(job.jobId);
     navigate(`/results/${job.result.requestId}`, {
       state: {
         result: job.result,
@@ -296,9 +362,9 @@ export function GenerationJobProvider({
 
     async function restore() {
       const generation = pollGenerationRef.current;
-      const jobId = readActiveJobId();
-      if (!jobId) return;
       const submission = await generationJobRepository.get();
+      const jobId = readActiveJobId() ?? submission?.jobId ?? null;
+      if (!jobId) return;
       if (cancelled || generation !== pollGenerationRef.current) return;
       if (!submission || submission.jobId !== jobId) {
         // 快速发现键指向的任务上下文已缺失：一并清空，避免残留。
@@ -310,7 +376,7 @@ export function GenerationJobProvider({
       void poll();
     }
 
-    void restore();
+    void restore().finally(() => restoreReadyRef.current.resolve());
 
     return () => {
       cancelled = true;
@@ -320,6 +386,14 @@ export function GenerationJobProvider({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!activeJob || !isTerminalStatus(activeJob.status)) return;
+    const viewingTask = pathname === '/history'
+      || pathname === `/history/${activeJob.jobId}`
+      || pathname === `/results/${activeJob.jobId}`;
+    if (viewingTask) markResultViewed(activeJob.jobId);
+  }, [activeJob, pathname]);
 
   const value: GenerationJobContextValue = {
     activeJob,

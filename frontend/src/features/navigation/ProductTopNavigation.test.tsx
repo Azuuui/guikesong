@@ -1,4 +1,4 @@
-import {fireEvent,render,screen} from '@testing-library/react';
+import {fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import type {GenerationJobSnapshot} from '../../../../shared/generationJobs';
@@ -141,7 +141,22 @@ describe('ProductTopNavigation',()=>{
     fireEvent.click(screen.getByRole('button',{name:'启动任务'}));
 
     const indicator=await screen.findByTestId('generation-job-indicator');
-    expect(indicator).toHaveAttribute('data-state','complete');
+    await waitFor(()=>expect(indicator).toHaveAttribute('data-state','complete'));
     expect(indicator).toHaveTextContent('素材生成完成');
+  });
+
+  it('失败任务显示失败状态而不是完成文案',async()=>{
+    getGenerationJobMock.mockResolvedValue(makeSnapshot({
+      status:'failed',
+      error:{code:'UPSTREAM_ERROR',message:'生成失败，请稍后重试'},
+    }));
+    renderNavigationWithJob('/templates');
+
+    fireEvent.click(screen.getByRole('button',{name:'启动任务'}));
+
+    const indicator=await screen.findByTestId('generation-job-indicator');
+    await waitFor(()=>expect(indicator).toHaveAttribute('data-state','failed'));
+    expect(indicator).toHaveTextContent('素材生成失败');
+    expect(indicator).not.toHaveTextContent('素材生成完成');
   });
 });

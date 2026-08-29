@@ -155,6 +155,10 @@
   animation:product-top-navigation__job-dot-pulse 1.6s ease-in-out infinite;
 }
 
+.product-top-navigation__job-dot--failed{
+  background:var(--color-error-600, #b42318);
+}
+
 @keyframes product-top-navigation__job-dot-pulse{
   0%,100%{opacity:1}
   50%{opacity:.35}

@@ -318,6 +318,62 @@ describe('GenerationJobProvider', () => {
     expect(createGenerationJobMock).toHaveBeenCalledTimes(1);
   });
 
+  it('创建请求尚未返回时并发提交只创建一个后端任务', async () => {
+    useTestFakeTimers();
+    vi.spyOn(generationJobRepository, 'get').mockResolvedValue(undefined);
+    let resolveCreate!: (value: {jobId: string; status: 'queued'; createdAt: string}) => void;
+    createGenerationJobMock.mockImplementationOnce(() => new Promise(resolve => {
+      resolveCreate = resolve;
+    }));
+    getGenerationJobMock.mockResolvedValue(makeSnapshot({status: 'running'}));
+
+    renderProvider();
+    const first = probe!.startGeneration(SUBMISSION);
+    const second = probe!.startGeneration(SUBMISSION);
+    await vi.waitFor(() => expect(createGenerationJobMock).toHaveBeenCalledTimes(1));
+    resolveCreate({jobId: 'job-1', status: 'queued', createdAt: NOW});
+
+    await act(async () => {
+      await first;
+      await expect(second).rejects.toThrow('已有生成任务正在进行');
+    });
+    expect(createGenerationJobMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('后端接单后本地任务持久化失败仍继续轮询并保留任务', async () => {
+    useTestFakeTimers();
+    mockCreate();
+    getGenerationJobMock.mockResolvedValueOnce(makeSnapshot({status: 'running'}));
+    vi.spyOn(generationJobRepository, 'get').mockResolvedValue(undefined);
+    vi.spyOn(generationJobRepository, 'put').mockRejectedValueOnce(new DOMException('quota', 'QuotaExceededError'));
+
+    renderProvider();
+    await act(async () => {
+      await expect(probe!.startGeneration(SUBMISSION)).resolves.toBeUndefined();
+    });
+    await flush();
+
+    expect(probe!.activeJob).toMatchObject({jobId: 'job-1', status: 'running'});
+    expect(getGenerationJobMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('取消轮询时把 AbortSignal 传给查询请求', async () => {
+    useTestFakeTimers();
+    mockCreate();
+    getGenerationJobMock.mockResolvedValueOnce(makeSnapshot({status: 'running'}));
+
+    const rendered = renderProvider();
+    await act(async () => {
+      await probe!.startGeneration(SUBMISSION);
+    });
+    await flush();
+
+    const signal = getGenerationJobMock.mock.calls[0]?.[1];
+    expect(signal).toBeInstanceOf(AbortSignal);
+    rendered.unmount();
+    expect(signal.aborted).toBe(true);
+  });
+
   it('终态任务后可以发起新任务', async () => {
     useTestFakeTimers();
     mockCreate('job-1');

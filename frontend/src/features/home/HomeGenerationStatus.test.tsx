@@ -44,13 +44,13 @@ describe('HomeGenerationStatus',()=>{
     expect(screen.getByRole('status')).toHaveTextContent(text);
   });
 
-  it('图片阶段显示当前生成计数',()=>{
+  it('图片阶段显示已完成计数',()=>{
     const first=renderStatus({job:makeJob({status:'running',phase:'images',completedImages:0,totalImages:2})});
-    expect(screen.getByRole('status')).toHaveTextContent('正在生成图片 1/2');
+    expect(screen.getByRole('status')).toHaveTextContent('正在生成图片 0/2');
     first.unmount();
 
     renderStatus({job:makeJob({status:'running',phase:'images',completedImages:1,totalImages:2})});
-    expect(screen.getByRole('status')).toHaveTextContent('正在生成图片 2/2');
+    expect(screen.getByRole('status')).toHaveTextContent('正在生成图片 1/2');
   });
 
   it('图片阶段计数不越过总数',()=>{
@@ -69,7 +69,7 @@ describe('HomeGenerationStatus',()=>{
         onOpenResult={vi.fn()}
       />,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('正在生成图片 2/4');
+    expect(screen.getByRole('status')).toHaveTextContent('正在生成图片 1/4');
   });
 
   it('查询失败时显示正在重新连接',()=>{

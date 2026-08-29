@@ -31,23 +31,26 @@ function isTerminalStatus(status: GenerationJobSnapshot['status']): boolean {
 
 /** 历史页顶部的进行中任务摘要：跨页面轮询期间也能在本页看到阶段。 */
 function HistoryJobSummary() {
-  const {activeJob, openResult} = useGenerationJob();
+  const {activeJob, connectionState, openResult} = useGenerationJob();
   if (!activeJob) return null;
 
   const terminal = isTerminalStatus(activeJob.status);
+  const summaryTone = activeJob.status === 'failed' ? 'failed' : terminal ? 'terminal' : 'running';
   const text = terminal
     ? activeJob.status === 'failed'
       ? activeJob.error?.message ?? '素材生成失败，请稍后重试。'
       : activeJob.status === 'partial'
         ? '部分素材已完成'
         : '素材已生成'
-    : activeJob.phase === 'images' && activeJob.totalImages > 0
-      ? `正在生成图片 ${Math.min(activeJob.completedImages + 1, activeJob.totalImages)}/${activeJob.totalImages}`
+    : connectionState === 'reconnecting'
+      ? '正在重新连接'
+      : activeJob.phase === 'images' && activeJob.totalImages > 0
+      ? `正在生成图片 ${Math.min(activeJob.completedImages, activeJob.totalImages)}/${activeJob.totalImages}`
       : GENERATION_JOB_PHASE_LABELS[activeJob.phase];
 
   return (
     <div
-      className={`history-job-summary history-job-summary--${terminal ? 'terminal' : 'running'}`}
+      className={`history-job-summary history-job-summary--${summaryTone}`}
       data-testid="history-job-summary"
       role="status"
     >
