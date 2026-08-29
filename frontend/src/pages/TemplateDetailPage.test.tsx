@@ -11,7 +11,7 @@ function renderPage(path:string){
 describe('TemplateDetailPage',()=>{
   it('呈现模板说明并返回主页选中该模板',()=>{
     renderPage('/templates/xhs-atlas');
-    expect(screen.getByRole('heading',{level:1,name:'小红书图鉴创作'})).toBeVisible();
+    expect(screen.getByRole('heading',{level:1,name:'小红书种草图鉴'})).toBeVisible();
     expect(screen.getByText('适用场景')).toBeVisible();
     expect(screen.getByText('输入建议')).toBeVisible();
     expect(screen.getByRole('link',{name:'用此模板创作'})).toHaveAttribute('href','/?template=xhs-atlas#composer');

@@ -8,10 +8,10 @@ describe('HomeTemplateRail',()=>{
   it('默认按图鉴、原创 IP、手绘攻略、照片图集的顺序展示',()=>{
     render(<MemoryRouter><HomeTemplateRail onSelect={vi.fn()} selectedWorkflowId="xhs-atlas" /></MemoryRouter>);
     expect(screen.getAllByRole('button',{name:/选择模板/}).map(button=>button.getAttribute('aria-label'))).toEqual([
-      '选择模板：小红书图鉴创作',
-      '选择模板：原创 IP 商品化',
+      '选择模板：小红书种草图鉴',
+      '选择模板：文创 IP 商品大片',
       '选择模板：目的地手绘攻略',
-      '选择模板：照片心情图集',
+      '选择模板：游客返图海报',
     ]);
   });
 
@@ -20,10 +20,10 @@ describe('HomeTemplateRail',()=>{
     const onSelect=vi.fn();
     render(<MemoryRouter><HomeTemplateRail onSelect={onSelect} selectedWorkflowId="xhs-atlas" /></MemoryRouter>);
 
-    await user.click(screen.getByRole('button',{name:'选择模板：原创 IP 商品化'}));
+    await user.click(screen.getByRole('button',{name:'选择模板：文创 IP 商品大片'}));
     expect(onSelect).toHaveBeenCalledWith('original-ip');
 
-    const detail=screen.getByRole('link',{name:'查看原创 IP 商品化详情'});
+    const detail=screen.getByRole('link',{name:'查看文创 IP 商品大片详情'});
     expect(detail).toHaveAttribute('href','/templates/original-ip');
     await user.click(detail);
     expect(onSelect).toHaveBeenCalledTimes(1);
@@ -31,7 +31,7 @@ describe('HomeTemplateRail',()=>{
 
   it('当前模板公开选中状态',()=>{
     render(<MemoryRouter><HomeTemplateRail onSelect={vi.fn()} selectedWorkflowId="xhs-atlas" /></MemoryRouter>);
-    expect(screen.getByRole('button',{name:'选择模板：小红书图鉴创作'})).toHaveAttribute('aria-pressed','true');
-    expect(screen.getByRole('button',{name:'选择模板：原创 IP 商品化'})).toHaveAttribute('aria-pressed','false');
+    expect(screen.getByRole('button',{name:'选择模板：小红书种草图鉴'})).toHaveAttribute('aria-pressed','true');
+    expect(screen.getByRole('button',{name:'选择模板：文创 IP 商品大片'})).toHaveAttribute('aria-pressed','false');
   });
 });

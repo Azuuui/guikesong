@@ -5,7 +5,8 @@ import {TEMPLATE_CONFIGS} from '../../config/templates';
 import {TemplatePreview} from './TemplatePreview';
 
 export type HomeTemplateRailProps={
-  selectedWorkflowId:WorkflowId;
+  /** 当前选中模板；undefined 表示尚未选择任何模板。 */
+  selectedWorkflowId:WorkflowId|undefined;
   onSelect:(workflowId:WorkflowId)=>void;
 };
 

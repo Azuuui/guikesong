@@ -21,8 +21,8 @@ export type TemplateConfig = {
 export const TEMPLATE_CONFIGS: readonly TemplateConfig[] = [
   {
     id: 'xhs-atlas',
-    name: '小红书图鉴创作',
-    description: '输入“贵阳的12种美食”式选题，自动产出图鉴封面、正文页与可直接发布的文案。',
+    name: '小红书种草图鉴',
+    description: '把“贵阳的12种美食”式选题做成一整套可发布的图鉴内容：封面、正文页、3 个候选标题和带话题标签的正文，一次生成直接发。',
     previewVariant: 'xhs-atlas',
     previewImageUrl: atlasPreviewUrl,
     suitableFor: ['城市文化图鉴', '目的地种草', '主题清单整理'],
@@ -33,8 +33,8 @@ export const TEMPLATE_CONFIGS: readonly TemplateConfig[] = [
   },
   {
     id: 'original-ip',
-    name: '原创 IP 商品化',
-    description: '锁定 IP 形象标准图后，一键产出品牌主视觉、识别系统、商品包装与场景应用四张图。',
+    name: '文创 IP 商品大片',
+    description: '文旅 IP 形象确定后，为伴手礼、联名商品一键产出品牌主视觉、包装展示和场景应用四张商品图，省下一整组商拍。',
     previewVariant: 'original-ip',
     previewImageUrl: ipPreviewUrl,
     suitableFor: ['IP 形象商品化', '品牌联名提案', '文创产品上市'],
@@ -46,7 +46,7 @@ export const TEMPLATE_CONFIGS: readonly TemplateConfig[] = [
   {
     id: 'travel-guide',
     name: '目的地手绘攻略',
-    description: '输入“成都”式目的地，自动规划 1～3 天行程，产出封面、每日路线图与交通住宿美食专题页。',
+    description: '输入一个城市或景点，自动联网整理行程，产出封面、逐日路线图和交通住宿美食专题页，是游客收藏率最高的官方攻略形态。',
     previewVariant: 'travel-guide',
     previewImageUrl: travelGuidePreviewUrl,
     suitableFor: ['目的地种草攻略', '城市漫游路线', '旅行计划整理'],
@@ -57,8 +57,8 @@ export const TEMPLATE_CONFIGS: readonly TemplateConfig[] = [
   },
   {
     id: 'ugc-photo-campaign',
-    name: '照片心情图集',
-    description: '上传 1～7 张游客返图，一图一海报并提炼整组情绪，配一套可直接发布的心情文案。',
+    name: '游客返图海报',
+    description: '把游客随手拍的返图变成精致的情绪海报组，一图一海报并配上共同情绪文案，适合 UGC 征集活动的二次传播。',
     previewVariant: 'ugc-photo-campaign',
     previewImageUrl: ugcPreviewUrl,
     suitableFor: ['游客返图精选', '景区日常批量出图', '心情随笔笔记'],

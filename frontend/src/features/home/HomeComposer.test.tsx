@@ -9,6 +9,7 @@ function renderComposer(overrides:Partial<HomeComposerProps>={}){
     onPromptChange:vi.fn(),
     onRemoveAttachment:vi.fn(),
     onSubmit:vi.fn(),
+    placeholder:'选题需包含 2～36 的数量，例如“贵阳的12种美食”。',
     prompt:'',
     ...overrides,
   };
@@ -16,6 +17,14 @@ function renderComposer(overrides:Partial<HomeComposerProps>={}){
 }
 
 describe('HomeComposer',()=>{
+  it('灰字提示来自传入的输入建议',()=>{
+    renderComposer({placeholder:'输入一个具体目的地（城市或景点），如“成都”或“杭州西湖”。'});
+    expect(screen.getByRole('textbox',{name:'一句话创作需求'})).toHaveAttribute(
+      'placeholder',
+      '输入一个具体目的地（城市或景点），如“成都”或“杭州西湖”。',
+    );
+  });
+
   it('输入不足 2 字时禁用生成',()=>{
     const empty=renderComposer();
     expect(screen.getByRole('button',{name:'开始生成'})).toBeDisabled();

@@ -13,6 +13,8 @@ export type HomeAttachment={
 
 export type HomeComposerProps={
   prompt:string;
+  /** 输入框灰字提示：由当前选中模板的输入建议提供。 */
+  placeholder:string;
   attachments:readonly HomeAttachment[];
   busy?:boolean;
   error?:string;
@@ -31,6 +33,7 @@ const STATUS_LABELS:Record<HomeAttachmentStatus,string>={
 
 export function HomeComposer({
   prompt,
+  placeholder,
   attachments,
   busy=false,
   error,
@@ -78,7 +81,7 @@ export function HomeComposer({
             maxLength={500}
             onChange={event=>onPromptChange(event.currentTarget.value)}
             onKeyDown={submitFromKeyboard}
-            placeholder="输入地点、主题和想要传达的感觉"
+            placeholder={placeholder}
             ref={textareaRef}
             rows={1}
             value={prompt}

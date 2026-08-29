@@ -50,8 +50,8 @@ describe('AppShell',()=>{
   it.each([
     ['/','你给一个选题它还你一座城的流量'],
     ['/templates','全部模板'],
-    ['/templates/xhs-atlas','小红书图鉴创作'],
-    ['/templates/original-ip/create','原创 IP 商品化'],
+    ['/templates/xhs-atlas','小红书种草图鉴'],
+    ['/templates/original-ip/create','文创 IP 商品大片'],
     ['/results/request-1','没有找到这条生成结果'],
     ['/history','本机历史'],
     ['/history/record-1','这条生成结果已经不在当前浏览器中'],

@@ -42,7 +42,8 @@ const DEFAULT_DEPENDENCIES:HomeGenerationDependencies={
 };
 
 export type UseHomeGenerationOptions={
-  initialWorkflowId:WorkflowId;
+  /** 初始选中模板；缺省时无选中，直到用户点选模板。 */
+  initialWorkflowId?:WorkflowId;
   navigate:Navigate;
   dependencies?:HomeGenerationDependencies;
 };
@@ -82,7 +83,7 @@ export function useHomeGeneration({
   initialWorkflowId,
   navigate,
 }:UseHomeGenerationOptions){
-  const [selectedWorkflowId,setSelectedWorkflowId]=useState<WorkflowId>(initialWorkflowId);
+  const [selectedWorkflowId,setSelectedWorkflowId]=useState<WorkflowId|undefined>(initialWorkflowId);
   const [prompt,setPrompt]=useState('');
   const [attachments,setAttachments]=useState<HomeAttachment[]>([]);
   const [busy,setBusy]=useState(false);
@@ -106,6 +107,10 @@ export function useHomeGeneration({
 
   function addFiles(files:readonly File[]){
     if(busy||files.length===0) return;
+    if(!selectedWorkflowId){
+      setError('请先在下方选择一个模板。');
+      return;
+    }
     const invalidType=files.find(file=>!ALLOWED_MEDIA_TYPES.has(file.type));
     if(invalidType){
       setError('仅支持 JPG、PNG、WebP 图片。');
@@ -149,6 +154,10 @@ export function useHomeGeneration({
 
   async function submit(){
     if(busy) return;
+    if(!selectedWorkflowId){
+      setError('请先在下方选择一个模板。');
+      return;
+    }
     const normalizedPrompt=prompt.trim();
     const selectedAttachments=[...attachments];
     const nextError=validationMessage(selectedWorkflowId,normalizedPrompt,selectedAttachments);
