@@ -17,6 +17,7 @@ backend/data/
 .env
 .env.*
 !.env.example
+.env_副本
 
 # 依赖与构建产物
 node_modules/
