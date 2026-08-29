@@ -106,7 +106,7 @@ describe('generation api',()=>{
     };
 
     await expect(generateMarketingAssets(request)).resolves.toEqual(response);
-    expect(fetchMock).toHaveBeenCalledWith('/api/generate',{
+    expect(fetchMock).toHaveBeenCalledWith('/api/generate',expect.objectContaining({
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -114,7 +114,8 @@ describe('generation api',()=>{
         userPrompt:'贵州夏季避暑宣传',
         referenceAssetIds:['asset-a'],
       }),
-    });
+      signal:expect.any(AbortSignal),
+    }));
   });
 
   it('rejects malformed successful upload items with a safe ApiError',async()=>{
