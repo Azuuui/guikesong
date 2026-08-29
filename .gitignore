@@ -1,6 +1,9 @@
 # 本地系统文件
 .DS_Store
 
+# 本地交互与临时产物
+.superpowers/
+
 # 运行时素材：后端持久保存，但不提交到代码仓库
 data/reference-assets/*
 !data/reference-assets/.gitkeep
