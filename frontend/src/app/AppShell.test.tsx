@@ -1,8 +1,12 @@
 import {render,screen,within} from '@testing-library/react';
 import {createMemoryRouter,RouterProvider} from 'react-router-dom';
-import {describe,expect,it} from 'vitest';
+import {describe,expect,it,vi} from 'vitest';
 import {appRouter} from './AppRouter';
 import {AppShell} from './AppShell';
+
+vi.mock('../features/background/ParticleRevealBackground',()=>({
+  ParticleRevealBackground:()=> <div data-testid="particle-background" />,
+}));
 
 function renderShell(initialEntry:string){
   const router=createMemoryRouter([

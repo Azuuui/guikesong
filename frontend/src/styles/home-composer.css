@@ -15,7 +15,7 @@
   background:rgb(250 251 250 / 90%);
   border:1px solid rgb(255 255 255 / 62%);
   border-radius:18px;
-  box-shadow:0 1px 2px rgb(20 20 20 / 5%),0 14px 36px rgb(20 20 20 / 10%);
+  box-shadow:var(--shadow-composer);
   -webkit-backdrop-filter:blur(16px);
   backdrop-filter:blur(16px);
   transition:border-color 160ms cubic-bezier(.16,1,.3,1),box-shadow 160ms cubic-bezier(.16,1,.3,1);
@@ -102,7 +102,7 @@
 }
 
 .home-composer__icon-button--submit{
-  color:#fff;
+  color:#fefefe;
   background:#e60012;
   border:1px solid #e60012;
 }
@@ -204,9 +204,10 @@
 }
 
 .home-composer__feedback{
-  min-height:22px;
   padding:6px 4px 0;
 }
+
+.home-composer__feedback:empty{display:none}
 
 .home-composer__feedback p{
   margin:0;

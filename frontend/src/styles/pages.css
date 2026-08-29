@@ -4,6 +4,12 @@
 @import './templates.css';
 @import './create.css';
 
+.app-shell__content > :not(.dashboard-page--creative-home) {
+  width: min(100% - 64px, 1440px);
+  margin-inline: auto;
+  padding-block: 48px 64px;
+}
+
 .page-placeholder {
   max-width: 800px;
   padding: var(--space-8);
@@ -312,6 +318,11 @@
 }
 
 @media (max-width: 767px) {
+  .app-shell__content > :not(.dashboard-page--creative-home) {
+    width: calc(100% - 32px);
+    padding-block: 32px 48px;
+  }
+
   .page-header {
     display: grid;
     gap: var(--space-5);

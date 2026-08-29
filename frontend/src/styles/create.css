@@ -443,7 +443,7 @@
 
 .template-guide {
   position: sticky;
-  top: var(--space-8);
+  top: calc(72px + var(--space-4));
   min-width: 0;
   overflow: hidden;
   background: var(--color-surface-000);

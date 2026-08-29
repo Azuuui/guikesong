@@ -1,4 +1,4 @@
-import {ArrowUp,Plus,X} from '@phosphor-icons/react';
+import {ArrowUp,CircleNotch,Plus,X} from '@phosphor-icons/react';
 import {useEffect,useRef,type ChangeEvent,type KeyboardEvent} from 'react';
 import '../../styles/home-composer.css';
 
@@ -127,7 +127,9 @@ export function HomeComposer({
             title="开始生成"
             type="button"
           >
-            <ArrowUp aria-hidden="true" size={20} weight="bold" />
+            {busy
+              ?<CircleNotch aria-hidden="true" className="button__spinner" size={20} weight="bold" />
+              :<ArrowUp aria-hidden="true" size={20} weight="bold" />}
           </button>
         </div>
 

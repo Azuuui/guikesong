@@ -99,4 +99,15 @@ describe('useHomeGeneration',()=>{
     unmount();
     expect(dependencies.revokeObjectURL).toHaveBeenCalledWith(preview);
   });
+
+  it('不会把非业务异常原文直接暴露给用户',async()=>{
+    const {result}=setup({uploadReferenceFiles:vi.fn().mockRejectedValue(new Error('internal stack detail'))});
+    const file=new File(['image'],'ref.png',{type:'image/png'});
+    act(()=>{
+      result.current.setPrompt('贵阳的12种美食');
+      result.current.addFiles([file]);
+    });
+    await act(async()=>result.current.submit());
+    expect(result.current.error).toBe('图片上传失败，请稍后重试。');
+  });
 });

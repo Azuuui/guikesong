@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {GenerateRequest,GenerateResult,IpProfilePublicOutput,ReferenceAsset,WorkflowId} from '../../../../shared/types';
 import {HISTORY_SAVE_WARNING,type WorkflowSaveInput} from '../create/types';
-import {generateAssets,getActiveIpProfile,uploadReferenceFiles} from '../generation/api';
+import {ApiError,generateAssets,getActiveIpProfile,uploadReferenceFiles} from '../generation/api';
 import {historyRepository} from '../history/historyRepository';
 import {captureHistoryRecord} from '../history/resultMaterializer';
 import type {HomeAttachment as HomeComposerAttachment} from './HomeComposer';
@@ -188,9 +188,13 @@ export function useHomeGeneration({
       if(stage==='upload'){
         setAttachments(current=>current.map(attachment=>({...attachment,status:'failed'})));
       }
-      const message=reason instanceof Error&&reason.message
+      const message=reason instanceof ApiError&&reason.message
         ?reason.message
-        :stage==='upload'?'图片上传失败，请稍后重试。':'素材生成失败，请稍后重试。';
+        :stage==='profile'
+          ?'IP 档案读取失败，请稍后重试。'
+          :stage==='upload'
+            ?'图片上传失败，请稍后重试。'
+            :'素材生成失败，请稍后重试。';
       setError(message);
     }finally{
       if(controllerRef.current===controller) controllerRef.current=undefined;
