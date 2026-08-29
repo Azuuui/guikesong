@@ -504,9 +504,16 @@ describe('original-ip workflow', () => {
 
   it('注册进默认注册表后按 workflowId 分派', async () => {
     const harness = createHarness();
-    const registry = createDefaultWorkflowRegistry({originalIp: harness.deps});
+    const registry = createDefaultWorkflowRegistry({
+      originalIp: harness.deps,
+      xhsAtlas: {
+        providers: harness.deps.providers,
+        loadReferenceImage: vi.fn(async () => 'data:image/png;base64,ref'),
+        saveGeneratedImage: harness.deps.saveGeneratedImage,
+      },
+    });
 
-    expect(registry.list()).toEqual(['original-ip']);
+    expect(registry.list()).toEqual(['original-ip', 'xhs-atlas']);
     expect(registry.get('original-ip').id).toBe('original-ip');
 
     const result = await registry.get('original-ip').run(REQUEST, CONTEXT);

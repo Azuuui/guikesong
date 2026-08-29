@@ -3,6 +3,7 @@ import {WORKFLOW_IDS} from '../../../shared/workflows';
 import {ApiError} from '../http/apiError';
 import type {Workflow} from './contracts';
 import {createOriginalIpWorkflow, type OriginalIpWorkflowDependencies} from './original-ip/workflow';
+import {createXhsAtlasWorkflow, type XhsAtlasWorkflowDependencies} from './xhs-atlas/workflow';
 
 export interface WorkflowRegistry {
   get(workflowId: string): Workflow;
@@ -42,9 +43,13 @@ export function createWorkflowRegistry(workflows: readonly Workflow[]): Workflow
 /** 组装当前已实现工作流的依赖；新增模板时在此登记。 */
 export interface DefaultWorkflowDependencies {
   readonly originalIp: OriginalIpWorkflowDependencies;
+  readonly xhsAtlas: XhsAtlasWorkflowDependencies;
 }
 
 /** 创建包含全部已实现工作流的默认注册表。 */
 export function createDefaultWorkflowRegistry(deps: DefaultWorkflowDependencies): WorkflowRegistry {
-  return createWorkflowRegistry([createOriginalIpWorkflow(deps.originalIp)]);
+  return createWorkflowRegistry([
+    createOriginalIpWorkflow(deps.originalIp),
+    createXhsAtlasWorkflow(deps.xhsAtlas),
+  ]);
 }
