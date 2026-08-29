@@ -1,5 +1,5 @@
 import {ArrowRight, ImageSquare, Plus} from '@phosphor-icons/react';
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {Link} from 'react-router-dom';
 import {TEMPLATE_CONFIGS_BY_ID} from '../config/templates';
 import {TemplateGallery} from '../features/templates/TemplateGallery';
@@ -118,10 +118,6 @@ export function DashboardPage() {
   }, []);
 
   const hasRecords = state.status === 'ready' && state.records.length > 0;
-  const heading = useMemo(
-    () => (hasRecords ? '继续最近的创作' : '开始创建第一套文旅素材'),
-    [hasRecords],
-  );
 
   return (
     <section aria-labelledby="dashboard-title" className="dashboard-page">
@@ -136,11 +132,19 @@ export function DashboardPage() {
         </Link>
       </header>
 
-      {hasRecords ? (
+      {state.status === 'loading' ? (
+        <section aria-labelledby="recent-tasks-loading-title" className="dashboard-empty">
+          <div className="dashboard-empty__copy">
+            <h2 id="recent-tasks-loading-title">正在读取最近任务</h2>
+            <p>正在整理保存在当前浏览器中的创作记录。</p>
+          </div>
+          <RecentTaskSkeleton />
+        </section>
+      ) : hasRecords ? (
         <div className="dashboard-layout">
           <section aria-labelledby="recent-tasks-title" className="dashboard-recent">
             <div className="section-heading">
-              <h2 id="recent-tasks-title">{heading}</h2>
+              <h2 id="recent-tasks-title">继续最近的创作</h2>
               <Link to="/history">查看全部历史</Link>
             </div>
             <RecentTaskList records={state.records} thumbnailUrls={thumbnailUrls} />
@@ -156,7 +160,7 @@ export function DashboardPage() {
       ) : (
         <section aria-labelledby="first-creation-title" className="dashboard-empty">
           <div className="dashboard-empty__copy">
-            <h2 id="first-creation-title">{heading}</h2>
+            <h2 id="first-creation-title">开始创建第一套文旅素材</h2>
             <p>选择一个模板，输入一句话需求，系统会生成文案、标签和完整图片页面。</p>
             {state.status === 'error' ? (
               <p className="dashboard-empty__warning" role="status">
@@ -164,7 +168,7 @@ export function DashboardPage() {
               </p>
             ) : null}
           </div>
-          {state.status === 'loading' ? <RecentTaskSkeleton /> : <TemplateGallery />}
+          <TemplateGallery />
         </section>
       )}
     </section>
