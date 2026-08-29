@@ -52,6 +52,7 @@ const SAFE_BUSINESS_ERRORS=new Set([
   '活动主题不超过 50 字',
   '投稿昵称不超过 30 字',
   '投稿昵称数量需与照片数量一致',
+  '任务不存在或已过期',
 ]);
 
 export class ApiError extends Error{
@@ -232,7 +233,7 @@ function isUgcPhotoCampaignPage(value:unknown):boolean{
 }
 
 /** API 运行时守卫：按 workflowId 校验专属 copy、pages 与 artifacts。 */
-function isGenerateResult(value:unknown):value is GenerateResult{
+export function isGenerateResult(value:unknown):value is GenerateResult{
   if(!isRecord(value)) return false;
   if(!isNonEmptyString(value.requestId)
     ||typeof value.workflowId!=='string'
@@ -302,7 +303,7 @@ function errorMessage(status:number,body:unknown,fallback:string):string{
   return SAFE_BUSINESS_ERRORS.has(message)?message:fallback;
 }
 
-async function requestJson(
+export async function requestJson(
   url:string,
   init:RequestInit,
   fallback:string,
