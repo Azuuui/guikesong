@@ -106,6 +106,7 @@ export function CreatePage() {
     draft: CreateDraft,
     assets: ReferenceAsset[],
     createdAt: string,
+    signal?: AbortSignal,
   ) {
     if (assets.length !== draft.files.length) {
       throw new Error('参考图上传结果与本地文件不匹配');
@@ -114,6 +115,7 @@ export function CreatePage() {
       response,
       userPrompt: draft.userPrompt,
       createdAt,
+      signal,
       referenceFiles: assets.map((asset, index) => ({asset, blob: draft.files[index]})),
     });
     await historyRepository.put(record);

@@ -10,6 +10,10 @@ export {HistorySaveError} from './historyTypes';
 
 type Fetcher=(input:RequestInfo | URL,init?:RequestInit)=>Promise<Response>;
 
+const CAPTURE_TIMEOUT_MS=30_000;
+const MAX_PAGE_BLOB_BYTES=25*1024*1024;
+const MAX_TOTAL_PAGE_BLOB_BYTES=200*1024*1024;
+
 export type CaptureHistoryRecordInput={
   response:GenerateResponse;
   userPrompt:string;
@@ -17,6 +21,7 @@ export type CaptureHistoryRecordInput={
   createdAt?:string;
   now?:()=>Date;
   fetcher?:Fetcher;
+  signal?:AbortSignal;
 };
 
 export type MaterializedResult={
@@ -41,22 +46,100 @@ function cloneResponse(response:GenerateResponse):GenerateResponse{
 async function capturePageBlob(
   page:GenerateResponse['pages'][number],
   fetcher:Fetcher,
+  externalSignal:AbortSignal | undefined,
+  captureSignal:AbortSignal,
+  consumeBytes:(bytes:number)=>void,
 ):Promise<StoredPageBlob | undefined>{
   if(page.status!=='succeeded'||!page.imageUrl){
     return undefined;
   }
 
-  const response=await fetcher(page.imageUrl);
-  if(!response.ok){
-    throw new Error(`图片读取失败（HTTP ${response.status}）`);
+  const requestController=new AbortController();
+  const abortRequest=(signal:AbortSignal)=>requestController.abort(signal.reason);
+  const externalAbort=()=>externalSignal&&abortRequest(externalSignal);
+  const captureAbort=()=>abortRequest(captureSignal);
+  const timeout=setTimeout(
+    ()=>requestController.abort(new DOMException('图片读取超时','TimeoutError')),
+    CAPTURE_TIMEOUT_MS,
+  );
+
+  if(externalSignal?.aborted){
+    externalAbort();
+  }else{
+    externalSignal?.addEventListener('abort',externalAbort,{once:true});
   }
-  const blob=await response.blob();
-  return {
-    pageId:page.id,
-    filename:page.filename,
-    mediaType:blob.type||'application/octet-stream',
-    blob,
-  };
+  if(captureSignal.aborted){
+    captureAbort();
+  }else{
+    captureSignal.addEventListener('abort',captureAbort,{once:true});
+  }
+
+  try{
+    const response=await fetcher(page.imageUrl,{signal:requestController.signal});
+    if(!response.ok){
+      throw new Error(`图片读取失败（HTTP ${response.status}）`);
+    }
+
+    const declaredLength=Number(response.headers.get('content-length'));
+    if(Number.isFinite(declaredLength)&&declaredLength>MAX_PAGE_BLOB_BYTES){
+      throw new Error('单张历史图片超过 25MB 限制');
+    }
+
+    const declaredType=(response.headers.get('content-type')??'').split(';',1)[0].trim().toLowerCase();
+    if(declaredType&&!declaredType.startsWith('image/')){
+      throw new Error('历史图片响应类型无效');
+    }
+
+    let blob:Blob;
+    if(response.body){
+      const reader=response.body.getReader();
+      const chunks:Uint8Array<ArrayBuffer>[]=[];
+      let pageBytes=0;
+      try{
+        while(true){
+          const {done,value}=await reader.read();
+          if(done) break;
+          pageBytes+=value.byteLength;
+          if(pageBytes>MAX_PAGE_BLOB_BYTES){
+            throw new Error('单张历史图片超过 25MB 限制');
+          }
+          consumeBytes(value.byteLength);
+          chunks.push(new Uint8Array(value));
+        }
+      }catch(error){
+        await reader.cancel(error).catch(()=>undefined);
+        throw error;
+      }
+      if(!declaredType){
+        throw new Error('历史图片响应缺少图片类型');
+      }
+      blob=new Blob(chunks,{type:declaredType});
+    }else{
+      blob=await response.blob();
+      if(blob.size>MAX_PAGE_BLOB_BYTES){
+        throw new Error('单张历史图片超过 25MB 限制');
+      }
+      consumeBytes(blob.size);
+      const fallbackType=(blob.type||declaredType).toLowerCase();
+      if(!fallbackType.startsWith('image/')){
+        throw new Error('历史图片响应类型无效');
+      }
+      if(blob.type!==fallbackType){
+        blob=blob.slice(0,blob.size,fallbackType);
+      }
+    }
+
+    return {
+      pageId:page.id,
+      filename:page.filename,
+      mediaType:blob.type,
+      blob,
+    };
+  }finally{
+    clearTimeout(timeout);
+    externalSignal?.removeEventListener('abort',externalAbort);
+    captureSignal.removeEventListener('abort',captureAbort);
+  }
 }
 
 export async function captureHistoryRecord({
@@ -66,6 +149,7 @@ export async function captureHistoryRecord({
   createdAt,
   now=()=>new Date(),
   fetcher=fetch,
+  signal,
 }:CaptureHistoryRecordInput):Promise<HistoryRecord>{
   const savedAt=createdAt??now().toISOString();
   const responseSnapshot=cloneResponse(response);
@@ -73,10 +157,24 @@ export async function captureHistoryRecord({
     asset:{...file.asset},
     blob:file.blob,
   }));
+  const captureController=new AbortController();
+  let totalBytes=0;
+  const consumeBytes=(bytes:number)=>{
+    totalBytes+=bytes;
+    if(totalBytes>MAX_TOTAL_PAGE_BLOB_BYTES){
+      throw new Error('历史图片总量超过 200MB 限制');
+    }
+  };
 
   try{
     const captured=await Promise.all(
-      responseSnapshot.pages.map(page=>capturePageBlob(page,fetcher)),
+      responseSnapshot.pages.map(page=>capturePageBlob(
+        page,
+        fetcher,
+        signal,
+        captureController.signal,
+        consumeBytes,
+      )),
     );
     return {
       id:responseSnapshot.requestId,
@@ -88,6 +186,7 @@ export async function captureHistoryRecord({
       pageBlobs:captured.filter((page):page is StoredPageBlob=>page!==undefined),
     };
   }catch(error){
+    captureController.abort(error);
     throw new HistorySaveError('生成结果可用，但图片无法保存到本机历史。',{cause:error});
   }
 }

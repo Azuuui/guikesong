@@ -31,6 +31,7 @@ export type CreateFormProps = {
     draft: CreateDraft,
     assets: ReferenceAsset[],
     createdAt: string,
+    signal?: AbortSignal,
   ) => Promise<void>;
   onComplete: (
     requestId: string,
@@ -163,8 +164,9 @@ export function CreateForm({
       setPhase('saving');
       let historySaveWarning: string | undefined;
       try {
-        await saveResult(response, normalizedDraft, assets, createdAt);
+        await saveResult(response, normalizedDraft, assets, createdAt, submissionController.signal);
       } catch {
+        if (submissionController.signal.aborted || !mountedRef.current) return;
         historySaveWarning = HISTORY_SAVE_WARNING;
       }
       if (!mountedRef.current) return;

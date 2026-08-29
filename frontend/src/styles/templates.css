@@ -1,0 +1,195 @@
+.template-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+
+.template-card {
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-surface-000);
+  border: 1px solid var(--color-border-200);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color 160ms var(--ease-standard),
+    transform 160ms var(--ease-standard);
+}
+
+.template-card:hover {
+  border-color: var(--color-primary-500);
+}
+
+.template-card:focus-within {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: 2px;
+}
+
+.template-card__media {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--color-surface-100);
+  border-bottom: 1px solid var(--color-border-100);
+}
+
+.template-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 160ms var(--ease-standard);
+}
+
+.template-card:hover .template-card__image {
+  transform: scale(1.015);
+}
+
+.template-card__image-placeholder {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--color-ink-400);
+}
+
+.template-card__content {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.template-card__heading h2,
+.template-card__heading h3 {
+  margin-bottom: var(--space-2);
+  margin-top: 0;
+  color: var(--color-ink-900);
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.template-card__heading p,
+.template-card__details dd,
+.template-card__compact-summary {
+  margin-bottom: 0;
+  color: var(--color-ink-500);
+}
+
+.template-card__details {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.template-card__details dt {
+  margin: 0 0 var(--space-1);
+  color: var(--color-ink-700);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.template-card__details dd {
+  margin-left: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.template-card__compact-summary {
+  display: none;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.template-card__action {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-primary-700);
+  background: var(--color-primary-050);
+  border: 1px solid var(--color-primary-100);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background-color 160ms var(--ease-standard),
+    border-color 160ms var(--ease-standard),
+    transform 160ms var(--ease-standard);
+}
+
+.template-card__action:hover {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-500);
+}
+
+.template-card__action:active {
+  transform: scale(0.98);
+}
+
+.template-card__action:focus-visible {
+  outline: none;
+}
+
+.template-gallery--compact {
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.template-card--compact {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.template-card--compact .template-card__media {
+  height: auto;
+  min-height: 0;
+  border-right: 1px solid var(--color-border-100);
+  border-bottom: 0;
+}
+
+.template-card--compact .template-card__content {
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.template-card--compact .template-card__heading h2,
+.template-card--compact .template-card__heading h3 {
+  margin-bottom: var(--space-1);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.template-card--compact .template-card__heading p,
+.template-card--compact .template-card__details {
+  display: none;
+}
+
+.template-card--compact .template-card__compact-summary {
+  display: block;
+}
+
+.template-card--compact .template-card__action {
+  padding-inline: var(--space-3);
+}
+
+@media (max-width: 767px) {
+  .template-gallery {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .template-card__content {
+    padding: var(--space-5);
+  }
+
+  .template-card--compact {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+
+  .template-card--compact .template-card__media {
+    min-height: 0;
+  }
+}
