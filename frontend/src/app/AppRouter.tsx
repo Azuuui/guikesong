@@ -5,6 +5,7 @@ import {ResultPage} from '../pages/ResultPage';
 import {TemplatesPage} from '../pages/TemplatesPage';
 import {HistoryPage} from '../pages/HistoryPage';
 import {HistoryDetailPage} from '../pages/HistoryDetailPage';
+import {NotFoundPage} from '../pages/NotFoundPage';
 import {AppShell} from './AppShell';
 
 export const ROUTES = {
@@ -43,6 +44,10 @@ export const appRouter = createBrowserRouter([
       {
         path: ROUTES.historyDetail,
         element: <HistoryDetailPage />,
+      },
+      {
+        path: '*',
+        element: <NotFoundPage />,
       },
     ],
   },

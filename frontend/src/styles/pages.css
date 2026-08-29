@@ -958,10 +958,7 @@
 }
 
 .history-row__error {
-  position: absolute;
-  right: 44px;
-  bottom: calc(-1 * var(--space-4));
-  z-index: 1;
+  grid-column: 2 / -1;
   margin: 0;
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-000);
@@ -1943,6 +1940,11 @@
   .history-row__menu {
     grid-column: 3;
     grid-row: 1 / span 3;
+  }
+
+  .history-row__error {
+    grid-column: 2;
+    grid-row: 4;
   }
 
   .history-detail-page__source {

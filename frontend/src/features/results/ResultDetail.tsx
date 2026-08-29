@@ -24,7 +24,6 @@ export type ResultDetailProps = {
   source: 'current' | 'history';
   historySaveWarning?: string;
   onRegenerate: () => void;
-  onDelete?: () => Promise<void>;
 };
 
 type CopyTarget = 'title' | 'body' | 'tags';
