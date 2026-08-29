@@ -101,6 +101,19 @@ describe('historyRepository',()=>{
     await expect(historyRepository.put(makeHistoryRecord(1))).rejects.toBeInstanceOf(HistorySaveError);
     expect(put).toHaveBeenCalledTimes(2);
   });
+
+  it('has reports whether a record exists by id',async()=>{
+    const record=makeHistoryRecord(1);
+
+    expect(await historyRepository.has(record.id)).toBe(false);
+    expect(await historyRepository.has('missing')).toBe(false);
+
+    await historyRepository.put(record);
+    expect(await historyRepository.has(record.id)).toBe(true);
+
+    await historyRepository.delete(record.id);
+    expect(await historyRepository.has(record.id)).toBe(false);
+  });
 });
 
 describe('formatHistoryTime',()=>{

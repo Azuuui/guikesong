@@ -61,6 +61,12 @@ async function getRecord(id:string):Promise<HistoryRecord|undefined>{
   return withDatabase(database=>database.get(STORE_NAME,id));
 }
 
+/** 幂等写入历史前的存在性检查：同一 id 只需判断是否已存在记录。 */
+async function hasRecord(id:string):Promise<boolean>{
+  const record=await getRecord(id);
+  return record!==undefined;
+}
+
 async function writeRecordAndTrim(record:HistoryRecord,limit:number):Promise<void>{
   await withDatabase(async database=>{
     const transaction=database.transaction(STORE_NAME,'readwrite');
@@ -129,6 +135,7 @@ async function clearRecords():Promise<void>{
 export const historyRepository={
   list:():Promise<HistoryRecord[]>=>listRecords(),
   get:(id:string):Promise<HistoryRecord|undefined>=>getRecord(id),
+  has:(id:string):Promise<boolean>=>hasRecord(id),
   put:(record:HistoryRecord):Promise<void>=>putRecordAndTrim(record,RECORD_LIMIT),
   delete:(id:string):Promise<void>=>deleteRecord(id),
   clear:():Promise<void>=>clearRecords(),

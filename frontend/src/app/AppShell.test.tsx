@@ -3,10 +3,16 @@ import {createMemoryRouter,RouterProvider} from 'react-router-dom';
 import {describe,expect,it,vi} from 'vitest';
 import {appRouter} from './AppRouter';
 import {AppShell} from './AppShell';
+import {useGenerationJob} from '../features/generation/GenerationJobProvider';
 
 vi.mock('../features/background/ParticleRevealBackground',()=>({
   ParticleRevealBackground:()=> <div data-testid="particle-background" />,
 }));
+
+function GenerationContextProbe(){
+  const job=useGenerationJob();
+  return <div data-testid="generation-context">{job?'ready':'missing'}</div>;
+}
 
 function renderShell(initialEntry:string){
   const router=createMemoryRouter([
@@ -32,6 +38,17 @@ describe('AppShell',()=>{
     expect(screen.getByRole('link',{name:'历史记录'})).toBeVisible();
     expect(document.querySelector('.app-shell__sidebar')).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'打开导航'})).not.toBeInTheDocument();
+  });
+
+  it('为路由内容挂载应用级生成任务上下文',()=>{
+    const router=createMemoryRouter([
+      {
+        element:<AppShell />,
+        children:[{index:true,element:<GenerationContextProbe />}],
+      },
+    ],{initialEntries:['/']});
+    render(<RouterProvider router={router} />);
+    expect(screen.getByTestId('generation-context')).toHaveTextContent('ready');
   });
 
   it('模板详情仍归属全部模板活动页签',()=>{

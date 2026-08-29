@@ -1,5 +1,6 @@
 import {useEffect} from 'react';
 import {Outlet,useLocation} from 'react-router-dom';
+import {GenerationJobProvider} from '../features/generation/GenerationJobProvider';
 import {ProductTopNavigation} from '../features/navigation/ProductTopNavigation';
 
 function RouteScrollManager(){
@@ -23,13 +24,15 @@ function RouteScrollManager(){
 export function AppShell(){
   return (
     <div className="app-shell">
-      <RouteScrollManager />
-      <ProductTopNavigation />
-      <main className="app-shell__main">
-        <div className="app-shell__content">
-          <Outlet />
-        </div>
-      </main>
+      <GenerationJobProvider>
+        <RouteScrollManager />
+        <ProductTopNavigation />
+        <main className="app-shell__main">
+          <div className="app-shell__content">
+            <Outlet />
+          </div>
+        </main>
+      </GenerationJobProvider>
     </div>
   );
 }
