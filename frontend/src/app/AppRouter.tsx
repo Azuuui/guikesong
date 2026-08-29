@@ -6,11 +6,13 @@ import {TemplatesPage} from '../pages/TemplatesPage';
 import {HistoryPage} from '../pages/HistoryPage';
 import {HistoryDetailPage} from '../pages/HistoryDetailPage';
 import {NotFoundPage} from '../pages/NotFoundPage';
+import {TemplateDetailPage} from '../pages/TemplateDetailPage';
 import {AppShell} from './AppShell';
 
 export const ROUTES = {
   dashboard: '/',
   templates: '/templates',
+  templateDetail: '/templates/:templateId',
   create: '/templates/:templateId/create',
   result: '/results/:requestId',
   history: '/history',
@@ -28,6 +30,10 @@ export const appRouter = createBrowserRouter([
       {
         path: ROUTES.templates,
         element: <TemplatesPage />,
+      },
+      {
+        path: ROUTES.templateDetail,
+        element: <TemplateDetailPage />,
       },
       {
         path: ROUTES.create,
