@@ -64,6 +64,7 @@ describe('generation api',()=>{
     ['non-json',new Response('<html>server failure</html>',{status:500})],
     ['empty error',jsonResponse({error:'   '},500)],
     ['server stack',jsonResponse({error:'Error: provider exploded\n    at generate (/srv/app.js:3:2)'},500)],
+    ['absolute path',jsonResponse({error:'ENOENT: no such file, open /Users/private/key.json'},500)],
   ])('uses a safe upload message for %s errors',async(_label,response)=>{
     vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(response));
 
@@ -113,6 +114,46 @@ describe('generation api',()=>{
         userPrompt:'贵州夏季避暑宣传',
         referenceAssetIds:['asset-a'],
       }),
+    });
+  });
+
+  it('rejects malformed successful upload items with a safe ApiError',async()=>{
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({
+      assets:[{
+        assetId:'asset-a',
+        url:'/api/reference-assets/asset-a',
+        originalName:'a.png',
+        mediaType:'text/html',
+        size:-1,
+        createdAt:'2026-08-29T00:00:00.000Z',
+      }],
+    })));
+
+    await expect(uploadReferenceFiles([new File(['x'],'a.png')])).rejects.toMatchObject({
+      status:200,
+      message:'参考图上传失败，请稍后重试',
+    });
+  });
+
+  it('rejects malformed successful generation responses with a safe ApiError',async()=>{
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ok:true})));
+    const request={templateId:'ip-image' as const,userPrompt:'贵州',referenceAssetIds:[]};
+
+    await expect(generateMarketingAssets(request)).rejects.toMatchObject({
+      status:200,
+      message:'素材生成失败，请稍后重试',
+    });
+  });
+
+  it('never exposes server errors even when the message looks readable',async()=>{
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({error:'上游服务暂时不可用'},503),
+    ));
+    const request={templateId:'ip-image' as const,userPrompt:'贵州',referenceAssetIds:[]};
+
+    await expect(generateMarketingAssets(request)).rejects.toMatchObject({
+      status:503,
+      message:'素材生成失败，请稍后重试',
     });
   });
 
