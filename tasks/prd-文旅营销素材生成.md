@@ -2,12 +2,12 @@
 
 ## 文档状态
 
-- 状态：In Progress（双工作流实现已交付，进入联调验收）
+- 状态：In Progress（四工作流实现已交付，进入联调验收）
 - 文件模式：Split
 - 当前阶段：Phase 4：联调与 Demo 验收
 - 活跃阶段：Phase 4
 - 上下文文件：[context.md](./prd-文旅营销素材生成/context.md)
-- 最后更新：2026-08-29
+- 最后更新：2026-08-30
 - PRD 文件：`tasks/prd-文旅营销素材生成.md`
 - 产品主张：一人创意，撑起整个团队——一键生成可直接使用的文旅营销素材。
 - 体验设计规范：[文旅营销素材生成产品体验与界面设计规范](../docs/文旅营销素材生成-产品体验与界面设计规范.md)
@@ -28,6 +28,8 @@
 - G-8：以“场景化工作流”承载不同模板的输入、提示词、脚本规则和输出结构；公共模型 Provider 与基础设施复用，场景流程彼此隔离。
 - G-9：支持小红书图鉴类模板：用户输入一句带数量的选题，自动生成清单、封面图、正文页图和发布文案素材包。
 - G-10：支持原创 IP 场景通过 IP 素材库固定形象身份，后续生成请求自动注入已锁定的 IP 参考图和描述，减少重复上传。
+- G-11：支持目的地手绘攻略工作流：输入城市或景点名，联网检索目的地资料后自动规划 1～3 天行程，产出封面、每日路线、交通、住宿、美食专题页与发布文案。
+- G-12：支持游客返图（照片心情图集）工作流：上传 1～7 张游客照片，一图一海报提炼整组共同情绪，配一套可直接发布的心情文案。
 
 ## 非目标
 
@@ -121,14 +123,16 @@
 
 ### 工作流注册
 
-首批工作流包括：
+当前工作流包括：
 
 | 工作流 | 输入 | 核心过程 | 输出 |
 |---|---|---|---|
 | `xhs-atlas` | 含数量的选题标题、最多 4 张参考图 | 标题规范化 → 清单 JSON → 校验 → 分页 → 封面/正文页生图 → 小红书文案 | 封面图 + 正文页图 + 文案 JSON + 清单 JSON |
 | `original-ip` | 产品图、产品描述、锁定 IP Profile | 品牌视觉分析 → 画面规划 → 确定性拼接生图提示词 → 按职责生成图片 | 品牌/产品图片 + 营销文案 |
+| `travel-guide` | 目的地短语（城市或景点，2～30 字） | 智谱联网检索（可降级）→ 行程总成 JSON → 校验+天数钳制 → 渲染 7 类页面提示词 → 文案与全部页面并行生图 | 攻略封面 + 每日路线页 + 交通/住宿/美食页 + 行程 JSON + 发布文案 |
+| `ugc-photo-campaign` | 1～7 张投稿照片、可选活动主题与投稿昵称 | 加载照片 → 视觉分析逐张描述（校验+重试）→ 心情文案与逐张海报并行（一图一海报、单张失败单张重跑） | 一图一海报 + 共同情绪 + 心情文案 |
 
-旧 `generic-marketing` 与旧四模板合同已删除；系统中只有以上两套工作流。
+旧 `generic-marketing` 与旧四模板合同已删除；系统中只有以上四套工作流。
 
 工作流与模板解耦：模板负责用户可见入口和视觉提示词资产，工作流负责执行顺序和业务规则。提示词全部保存在后端，禁止下发前端；不建立 `agent/` 目录，也不把场景规则集中到单个服务文件。
 
@@ -148,6 +152,22 @@
 IP 素材库保存长期复用的 IP Profile，不与本次请求临时上传的参考素材混用。每个 Profile 至少包含：唯一 ID、标准参考图、固定文字描述和锁定状态。首次配置时允许多模态模型生成描述草稿，但必须由用户确认后才可锁定。
 
 后续生成只传 `ipProfileId`，后端自动读取参考图并注入图片模型请求；IP 描述作为提示词中的身份约束，动作、神态、尺度和载体由场景提示词决定。系统只承诺“自动携带固定参考上下文”，不承诺模型绝对还原。
+
+### `travel-guide` 目的地手绘攻略流程
+
+1. 目的地校验：2～30 字，拒绝国家/大区/星球级范围过大输入和明显非地点输入；不要求参考图。
+2. 联网检索增强：通过公共 `SearchProvider`（智谱 web-search-pro）检索目的地景点、开放时间、门票与交通资料；任何失败都降级为空结果并记录 warning，不阻塞攻略生成。
+3. 提示词一内容总成：将目的地与检索资料填充进内容总成提示词，输出完整行程 JSON（目的地、天数、整体调性、封面信息、逐日路线、交通、住宿、美食）；脚本校验目的地一致性与结构合法性，失败最多重试一次，天数钳制到 1～3 天。
+4. 确定性渲染 7 类页面提示词：风格头 + 封面页、每日路线页、交通页、住宿页、美食页模板按行程 JSON 槽位填充；页面角色为 `cover`/`route`/`transport`/`stay`/`food`，路线页带 `day` 序号。
+5. 文案与全部页面并行执行：文案失败返回失败响应；个别页面失败保留原始顺序并返回 `partial`。
+6. 组装结果：封面在前、路线页按天、随后交通/住宿/美食；结果额外携带 `destination`、`days` 与完整 `trip` JSON，供前端展示与行程 JSON 下载。
+
+### `ugc-photo-campaign` 游客返图流程
+
+1. 照片边界：1～7 张，顺序即发布顺序；支持与照片对齐的投稿昵称（空字符串表示未填写）和可选活动主题。
+2. 视觉分析：整组照片一次性交给视觉模型，输出每张一句话画面描述；脚本校验描述数量与照片数量一致、每条 1～50 字，失败最多重试一次。
+3. 心情文案与逐张海报并行：文案由整组描述提炼共同情绪、3 个候选标题、正文与标签；海报一图一海报，每张只吃自己那张照片，单张失败自动重跑一次，互不影响。
+4. 组装结果：页面按上传顺序；成功页携带 `photoIndex` 与可选 `credit`；文案失败返回失败响应，海报部分失败返回 `partial`。
 
 ## 产品结构与页面职责
 
@@ -178,7 +198,7 @@ IP 素材库保存长期复用的 IP Profile，不与本次请求临时上传的
 ## 发现摘要
 
 - 已审阅：项目介绍、已确认设计文档、当前 React/Vite 页面与样式、桌面和手机真实渲染、双提示词、图片艺术字、部分失败、参考图持久保存和本机完整历史规则。
-- 当前系统：前后端 Mock Demo、双工作流、多页面路由、IndexedDB 历史和正式首页均已落地；真实 Provider 与正式提示词仍需上线前冒烟。
+- 当前系统：前后端 Mock Demo、四工作流（图鉴、原创 IP、手绘攻略、游客返图）、多页面路由、IndexedDB 历史和正式首页均已落地；真实 Provider 与正式提示词仍需上线前冒烟。
 - 验证面：可建立共享类型测试、模板注册测试、Provider 契约测试、API 集成测试、前端组件测试、生产构建和浏览器冒烟测试。
 - 设计影响：采用前后端 TypeScript、模板注册表、文案/视觉规划双分支、页面级图片编排、后端持久文件目录、浏览器 IndexedDB 和 Mock/真实 Provider 适配器。
 - 已知缺口：真实文案模型、图片模型、正式提示词和部署环境尚未指定，不阻塞 Demo 骨架；接入真实 Provider 前需补充官方 API 契约与限额检查。
@@ -187,12 +207,12 @@ IP 素材库保存长期复用的 IP Profile，不与本次请求临时上传的
 
 ### 功能需求
 
-- FR-1：前端必须展示 `original-ip` 原创 IP 商品化与 `xhs-atlas` 小红书图鉴创作两个模板；旧四模板（`ip-image`、`travel-cards`、`scenery-collage`、`people-collage`）及其预览图、旧参考图数据已删除，旧创建路由返回“没有找到这个模板”。
-- FR-2：用户必须选择模板并提交工作流要求的最小输入：原创 IP 输入产品描述并上传一张产品图（首次需初始化并锁定 IP 档案）；图鉴输入含数量的选题，可选上传参考图。
+- FR-1：前端必须展示 `original-ip` 原创 IP 商品化、`xhs-atlas` 小红书图鉴创作、`travel-guide` 目的地手绘攻略与 `ugc-photo-campaign` 照片心情图集四个模板；旧四模板（`ip-image`、`travel-cards`、`scenery-collage`、`people-collage`）及其预览图、旧参考图数据已删除，旧创建路由返回“没有找到这个模板”。
+- FR-2：用户必须选择模板并提交工作流要求的最小输入：原创 IP 输入产品描述并上传一张产品图（首次需初始化并锁定 IP 档案）；图鉴输入含数量的选题，可选上传参考图；手绘攻略输入目的地短语；游客返图上传 1～7 张照片。
 - FR-3：前端必须支持最多 4 张参考图的选择、预览、移除与上传；支持 JPG、PNG、WebP，单张不超过 10MB。
 - FR-4：后端必须提供参考素材上传接口，对扩展名、MIME、文件签名、大小和数量执行校验。
 - FR-5：后端必须以随机不可猜测的 `assetId` 和安全文件名持久保存参考图，禁止目录浏览；生成完成不自动删除。
-- FR-6：点击“开始生成”后，前端按工作流提交：原创 IP 提交 `ipProfileId`、`productAssetId` 与 `productDescription`；图鉴提交规范化后的 `topic` 和最多 4 个 `referenceAssetIds`。
+- FR-6：点击“开始生成”后，前端按工作流提交：原创 IP 提交 `ipProfileId`、`productAssetId` 与 `productDescription`；图鉴提交规范化后的 `topic` 和最多 4 个 `referenceAssetIds`；手绘攻略提交 `destination`；游客返图提交 `photoAssetIds`、可选 `campaignTheme` 与对齐的 `photoCredits`。
 - FR-7：生成接口必须拒绝不存在或不合法的参考素材 ID。
 - FR-8：后端必须从模板注册表读取用户可见文案提示词和视觉规划提示词，提示词不得下发前端。
 - FR-9：文案和视觉规划分支必须能获取参考素材信息或模型可用输入；具体使用由模板和 Provider 决定。
@@ -238,6 +258,17 @@ IP 素材库保存长期复用的 IP Profile，不与本次请求临时上传的
 - FR-49：原创 IP 首次配置必须支持上传标准参考图、生成描述草稿、用户确认和锁定；未锁定 Profile 不得作为默认固定 IP 注入。
 - FR-50：绑定已锁定 IP Profile 的生成请求只需传 `ipProfileId`，后端自动读取参考图和固定描述并注入对应工作流；前端不得接收完整内部提示词。
 - FR-51：IP Profile 参考图和本次用户产品参考图必须分开管理；删除本机历史不得删除 IP 素材库文件或后端临时参考素材。
+- FR-52：系统必须提供公共 `SearchProvider` 能力：Mock 模式按 fixtureKey 返回可复现结果，真实模式调用智谱 web-search-pro；未配置密钥时进入不可用实现。
+- FR-53：`travel-guide` 必须校验目的地：2～30 字、拒绝范围过大输入（国家/大区/星球级）与明显非地点输入，前后端使用同一校验规则。
+- FR-54：`travel-guide` 联网检索为增强能力：任何失败降级为空结果并产生 warning，不得阻塞攻略生成。
+- FR-55：`travel-guide` 行程 JSON 校验失败最多重试一次；模型输出目的地与输入不一致时按输入渲染并记录 warning；天数钳制到 1～3 天。
+- FR-56：`travel-guide` 页面序列必须为封面、按天路线页、交通页、住宿页、美食页；结果包含 `destination`、`days`、`trip` 与发布文案。
+- FR-57：`ugc-photo-campaign` 必须校验照片数量 1～7 张；投稿昵称与照片按位对齐，空字符串视为未填写。
+- FR-58：`ugc-photo-campaign` 视觉分析输出逐张描述，脚本校验数量一致与单条 1～50 字，失败最多重试一次。
+- FR-59：`ugc-photo-campaign` 海报一图一海报、逐张独立生成；单张失败自动重跑一次且互不影响，失败页保留原顺序并返回 `partial`。
+- FR-60：`ugc-photo-campaign` 结果必须包含共同情绪 `mood`、3 个候选标题、正文、标签与逐张海报页；有活动主题时回显。
+- FR-61：主页必须支持全部四个工作流的模板切换、输入校验、附件规则与生成提交；手绘攻略不允许添加参考图，游客返图要求 1～7 张照片。
+- FR-62：本机历史必须按工作流分别保存四个工作流的输入与素材副本，并支持从历史恢复后重新生成。
 
 ### 非功能需求
 
@@ -272,6 +303,16 @@ type GenerateRequest =
       workflowId: "xhs-atlas";
       topic: string;
       referenceAssetIds: string[];
+    }
+  | {
+      workflowId: "travel-guide";
+      destination: string;
+    }
+  | {
+      workflowId: "ugc-photo-campaign";
+      photoAssetIds: string[];
+      campaignTheme?: string;
+      photoCredits?: string[];
     };
 
 type ReferenceAsset = {
@@ -313,6 +354,27 @@ type GenerateResult =
       topic: string;
       list: XhsAtlasList;
       pages: GeneratedPage[];
+      warnings: string[];
+    }
+  | {
+      requestId: string;
+      workflowId: "travel-guide";
+      status: "succeeded" | "partial";
+      copy: { titles: string[]; body: string; tags: string[] };
+      destination: string;
+      days: number; // 1～3，钳制后
+      trip: TravelGuideTrip; // 完整行程 JSON（封面、逐日路线、交通、住宿、美食）
+      pages: Array<GeneratedPage & { role: "cover" | "route" | "transport" | "stay" | "food"; day?: number }>;
+      warnings: string[];
+    }
+  | {
+      requestId: string;
+      workflowId: "ugc-photo-campaign";
+      status: "succeeded" | "partial";
+      copy: { titles: string[]; body: string; tags: string[] };
+      mood: string; // 整组照片的共同情绪
+      campaignTheme?: string; // 有填写时回显
+      pages: Array<GeneratedPage & { role: "poster"; photoIndex: number; credit?: string }>;
       warnings: string[];
     };
 
@@ -359,14 +421,14 @@ type IpProfile = {
 };
 ```
 
-内部合同：页面计划由各工作流确定性脚本生成，页面角色使用工作流自有枚举（原创 IP：`brand-cover`/`identity-system`/`product-system`/`scene-application`/`overview`；图鉴：`cover`/`content`），提示词由后端 Markdown 模板按槽位填充，不下发前端。
+内部合同：页面计划由各工作流确定性脚本生成，页面角色使用工作流自有枚举（原创 IP：`brand-cover`/`identity-system`/`product-system`/`scene-application`/`overview`；图鉴：`cover`/`content`；手绘攻略：`cover`/`route`/`transport`/`stay`/`food`；游客返图：`poster`），提示词由后端 Markdown 模板按槽位填充，不下发前端。公共 `SearchProvider` 仅后端使用，检索结果只进入手绘攻略的行程总成提示词，不直接下发给前端。
 
 ## 优先级
 
 | 优先级 | 内容 |
 |---|---|
-| P0 | 双工作流、文字输入、参考图上传、Mock Provider、动态页面、部分成功、结果展示与复制、本机历史；场景注册表、`xhs-atlas` 图鉴流程与 `original-ip` IP Profile 的 Mock 闭环 |
-| P1 | 单图下载、素材包下载、真实 Provider 配置接口、响应式页面、结构化日志和配额降级；原创 IP Profile 首次配置与锁定 |
+| P0 | 四工作流、文字输入、参考图上传、Mock Provider、动态页面、部分成功、结果展示与复制、本机历史；场景注册表、`xhs-atlas` 图鉴流程、`original-ip` IP Profile、`travel-guide` 手绘攻略与 `ugc-photo-campaign` 游客返图的 Mock 闭环 |
+| P1 | 单图下载、素材包下载、真实 Provider 配置接口、响应式页面、结构化日志和配额降级；原创 IP Profile 首次配置与锁定；手绘攻略联网检索增强 |
 | P2 | 单张图片页面重试、后端素材删除/治理、跨设备历史、知识库、自动发布和多行业模板 |
 
 ## 假设
@@ -451,6 +513,7 @@ type IpProfile = {
 
 ## 变更日志
 
+- 2026-08-30：四工作流交付落地：新增 `travel-guide` 目的地手绘攻略（目的地校验、智谱 web-search-pro 联网检索可降级、行程 JSON 校验+天数钳制、封面/每日路线/交通/住宿/美食页并行生图）与 `ugc-photo-campaign` 照片心情图集（1～7 张投稿照片、视觉分析逐张描述、一图一海报单张失败单张重跑、共同情绪与心情文案）；新增公共 `SearchProvider`（Mock/真实/不可用三态）；前端新增两个创建表单与结果面板，主页与本机历史支持全部四工作流。
 - 2026-08-29：正式首页结构落地：一级导航改为全宽顶部毛玻璃导航；主页承载一句话生成和双工作流模板轨道；新增 `/templates/:templateId` 详情；原创 IP 仅在无锁定档案时进入配置页；Trae 粒子显影动效限定主页挂载。
 - 2026-08-29：双工作流交付落地：合同收敛为 `original-ip` 与 `xhs-atlas` 联合类型，删除旧四模板与 `generic-marketing`；本机历史升级 v2（按工作流存产品图/参考图并支持重生成恢复）；真实 Provider 支持智谱 GLM 文案与第三方中转生图（中转方可见提示词与图片，禁止敏感素材）；旧模板预览图与后端旧参考图数据已清理。
 - 2026-08-29：纳入场景化工作流设计；新增 `xhs-atlas` 小红书图鉴流程、数量规范化/分页/JSON 校验规则，以及原创 IP Profile 素材库和自动注入约束。

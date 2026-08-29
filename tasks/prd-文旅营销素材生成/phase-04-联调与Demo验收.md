@@ -1,18 +1,23 @@
 # Phase 4：联调与 Demo 验收
 
 Parent PRD：[PRD：文旅营销素材生成 Demo](../prd-文旅营销素材生成.md)
-Status：Not Started
-Last Updated：2026-08-28
+Status：In Progress
+Last Updated：2026-08-30
 
 ## 目标
 
-验证四模板、参考素材、部分失败、本机历史、下载、响应式和无密钥 Mock 运行，形成可交付 Demo 与真实模型接入说明。
+验证四工作流、参考素材、部分失败、本机历史、下载、响应式和无密钥 Mock 运行，形成可交付 Demo 与真实模型接入说明。
 
 ## 对应范围
 
-- Goals：G-1—G-5
-- Success Criteria：SC-1—SC-11
-- Requirements：FR-1—FR-29、NFR-1—NFR-10
+- Goals：G-1—G-12
+- Success Criteria：SC-1—SC-15
+- Requirements：FR-1—FR-62、NFR-1—NFR-16
+
+## 已交付验证记录
+
+- 2026-08-29：双工作流（`original-ip`、`xhs-atlas`）交付，见 [acceptance-双工作流.md](../acceptance-双工作流.md)。
+- 2026-08-30：新增 `travel-guide` 手绘攻略与 `ugc-photo-campaign` 游客返图交付，Mock 与真实 Provider 冒烟全部通过，见 [acceptance-四工作流.md](../acceptance-四工作流.md)。
 
 ## Phase Discovery Gate
 
@@ -27,7 +32,7 @@ Last Updated：2026-08-28
 
 ### In Scope
 
-- 四模板 E2E、参考图上传与持久化、部分失败、本机历史、连续生成、下载、响应式和重启验证。
+- 四工作流 E2E、参考图上传与持久化、部分失败、本机历史、连续生成、下载、响应式和重启验证。
 - 文档、环境变量、提示词替换说明、项目介绍与 PRD 状态更新。
 
 ### Out of Scope
@@ -36,9 +41,9 @@ Last Updated：2026-08-28
 
 ## 实施清单
 
-- [ ] 启动前后端 Mock 模式，分别生成四个模板并保存验证证据。
-- [ ] 验证每个模板返回符合预期的页面数量和页面角色。
-- [ ] 为四个模板分别验证无参考图和带参考图生成流程。
+- [ ] 启动前后端 Mock 模式，分别生成四个工作流并保存验证证据。
+- [ ] 验证每个工作流返回符合预期的页面数量和页面角色。
+- [ ] 为四个工作流分别验证无参考图和带参考图生成流程。
 - [ ] 验证非法类型、伪造图片、单张超限和超过 4 张参考图被拒绝。
 - [ ] 验证生成完成和服务重启后参考图仍保留，目录不能浏览。
 - [ ] 注入单页失败，验证 `partial`、失败卡片、复制和成功图片下载。
@@ -62,7 +67,7 @@ Last Updated：2026-08-28
 
 ## 验证清单
 
-- [ ] 四模板 Mock E2E 全部通过。
+- [ ] 四工作流 Mock E2E 全部通过。
 - [ ] 参考图上传、持久保留和参与模型输入链路通过。
 - [ ] 成功、partial 和失败三类主状态均有证据。
 - [ ] 单图和素材包下载内容、文件名和 UTF-8 文案正确。
