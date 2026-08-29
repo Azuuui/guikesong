@@ -54,6 +54,8 @@ type ImageRegion=RevealTiming&{
 
 const BACKGROUND_COLOR='#fafafa';
 const REVEAL_FADE_REDUCTION=0.96;
+const REVEAL_SATURATION_BOOST=0.35;
+const REVEAL_BRIGHTNESS_BOOST=0.08;
 export const PARTICLE_REVEAL_TIMING={
   revealIn:1.2,
   hold:2,
@@ -108,6 +110,24 @@ export function getRevealStrength(timing:RevealTiming,time:number):number{
   if(localTime<timing.flow+timing.revealIn+timing.hold) return 1;
   const revealOutProgress=(localTime-timing.flow-timing.revealIn-timing.hold)/timing.revealOut;
   return easeInOut(1-revealOutProgress);
+}
+
+/** 只在图像显影阶段增强颜色；普通流动粒子保持原始五色。 */
+export function enhanceRevealColor(
+  red:number,
+  green:number,
+  blue:number,
+  strength:number,
+):readonly [number,number,number]{
+  const bounded=Math.min(1,Math.max(0,strength));
+  if(bounded===0) return [red,green,blue];
+  const luminance=red*0.2126+green*0.7152+blue*0.0722;
+  const saturation=1+REVEAL_SATURATION_BOOST*bounded;
+  const brightness=1+REVEAL_BRIGHTNESS_BOOST*bounded;
+  const enhance=(channel:number)=>Math.round(Math.min(255,Math.max(0,
+    (luminance+(channel-luminance)*saturation)*brightness,
+  )));
+  return [enhance(red),enhance(green),enhance(blue)];
 }
 
 function classifyPixel(red:number,green:number,blue:number):number{
@@ -378,9 +398,27 @@ export function createParticleRevealEngine({
         const index=rowStart+gridX;
         const alpha=gridAlpha[index]??0;
         if(alpha<=0.02) continue;
-        const red=Math.floor(255+((gridRed[index]??255)-255)*alpha);
-        const green=Math.floor(255+((gridGreen[index]??255)-255)*alpha);
-        const blue=Math.floor(255+((gridBlue[index]??255)-255)*alpha);
+        let reveal=0;
+        const regionIndex=cellRegionMap[index]??-1;
+        if(regionIndex>=0){
+          const region=imageRegions[regionIndex];
+          if(region){
+            const localX=gridX-region.gridX;
+            const localY=gridY-region.gridY;
+            if((region.colorGrid[localY*region.gridWidth+localX]??-1)>=0){
+              reveal=reveals[regionIndex]??0;
+            }
+          }
+        }
+        const [baseRed,baseGreen,baseBlue]=enhanceRevealColor(
+          gridRed[index]??255,
+          gridGreen[index]??255,
+          gridBlue[index]??255,
+          reveal,
+        );
+        const red=Math.floor(255+(baseRed-255)*alpha);
+        const green=Math.floor(255+(baseGreen-255)*alpha);
+        const blue=Math.floor(255+(baseBlue-255)*alpha);
         const centerX=gridX*profile.cell+(profile.cell>>1);
         const radius=profile.dotRadius*(0.5+alpha*0.7);
         drawingContext.fillStyle=`rgb(${red},${green},${blue})`;

@@ -2,6 +2,7 @@ import {describe,expect,it,vi} from 'vitest';
 import {
   createParticleRevealEngine,
   createSeededRandom,
+  enhanceRevealColor,
   getRevealStrength,
   PARTICLE_REVEAL_TIMING,
   type AnimationScheduler,
@@ -66,6 +67,13 @@ describe('particle reveal configuration',()=>{
     expect(getRevealStrength(timing,5.4)).toBe(1);
     expect(getRevealStrength(timing,7.4)).toBeCloseTo(0.986,2);
     expect(getRevealStrength(timing,8.4)).toBeCloseTo(0.5,5);
+  });
+
+  it('只在图像组合阶段逐步增强亮度与饱和度',()=>{
+    expect(enhanceRevealColor(212,53,28,0)).toEqual([212,53,28]);
+    expect(enhanceRevealColor(212,53,28,1)).toEqual([255,45,9]);
+    expect(enhanceRevealColor(46,125,50,1)).toEqual([28,143,34]);
+    expect(enhanceRevealColor(212,53,28,0.5)).toEqual([244,49,19]);
   });
 });
 
