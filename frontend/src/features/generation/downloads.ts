@@ -37,11 +37,46 @@ async function fetchImageBlob(url:string,fallbackMessage:string):Promise<Blob>{
     const response=await fetch(url,{signal:controller.signal});
     status=response.status;
     if(!response.ok) throw new DownloadError(status,fallbackMessage);
-    const mediaType=response.headers.get('Content-Type')?.split(';',1)[0].trim().toLowerCase();
-    if(!mediaType?.startsWith('image/')) throw new DownloadError(status,fallbackMessage);
+    const contentType=response.headers.get('Content-Type')?.trim();
+    const mediaType=contentType?.split(';',1)[0].trim().toLowerCase();
+    if(!contentType||!mediaType?.startsWith('image/')){
+      await response.body?.cancel().catch(()=>undefined);
+      throw new DownloadError(status,fallbackMessage);
+    }
+    const contentLength=response.headers.get('Content-Length');
+    const declaredBytes=contentLength===null?undefined:Number(contentLength);
+    if(declaredBytes!==undefined&&Number.isFinite(declaredBytes)&&declaredBytes>MAX_IMAGE_BYTES){
+      await response.body?.cancel().catch(()=>undefined);
+      throw new DownloadError(status,fallbackMessage);
+    }
+
+    if(response.body){
+      const reader=response.body.getReader();
+      const chunks:ArrayBuffer[]=[];
+      let receivedBytes=0;
+      try{
+        while(true){
+          const {done,value}=await reader.read();
+          if(done) break;
+          receivedBytes+=value.byteLength;
+          if(receivedBytes>MAX_IMAGE_BYTES){
+            await reader.cancel().catch(()=>undefined);
+            throw new DownloadError(status,fallbackMessage);
+          }
+          const chunk=new Uint8Array(value.byteLength);
+          chunk.set(value);
+          chunks.push(chunk.buffer);
+        }
+      }finally{
+        reader.releaseLock();
+      }
+      return new Blob(chunks,{type:contentType});
+    }
+
+    // 少数测试/旧环境没有 ReadableStream，只能在完整读取后复核；生产 fetch 通常走上面的流式硬上限。
     const blob=await response.blob();
     if(blob.size>MAX_IMAGE_BYTES) throw new DownloadError(status,fallbackMessage);
-    return blob;
+    return blob.type===contentType?blob:new Blob([blob],{type:contentType});
   }catch(reason:unknown){
     if(reason instanceof DownloadError) throw reason;
     const error=new DownloadError(status,fallbackMessage);
