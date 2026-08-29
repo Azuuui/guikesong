@@ -71,9 +71,9 @@ describe('particle reveal configuration',()=>{
 
   it('只在图像组合阶段逐步增强亮度与饱和度',()=>{
     expect(enhanceRevealColor(212,53,28,0)).toEqual([212,53,28]);
-    expect(enhanceRevealColor(212,53,28,1)).toEqual([255,45,9]);
-    expect(enhanceRevealColor(46,125,50,1)).toEqual([28,143,34]);
-    expect(enhanceRevealColor(212,53,28,0.5)).toEqual([244,49,19]);
+    expect(enhanceRevealColor(212,53,28,1)).toEqual([255,41,0]);
+    expect(enhanceRevealColor(46,125,50,1)).toEqual([17,159,24]);
+    expect(enhanceRevealColor(212,53,28,0.5)).toEqual([255,48,13]);
   });
 });
 

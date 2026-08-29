@@ -54,8 +54,8 @@ type ImageRegion=RevealTiming&{
 
 const BACKGROUND_COLOR='#fafafa';
 const REVEAL_FADE_REDUCTION=0.96;
-const REVEAL_SATURATION_BOOST=0.35;
-const REVEAL_BRIGHTNESS_BOOST=0.08;
+const REVEAL_SATURATION_BOOST=0.55;
+const REVEAL_BRIGHTNESS_BOOST=0.16;
 export const PARTICLE_REVEAL_TIMING={
   revealIn:1.2,
   hold:2,
