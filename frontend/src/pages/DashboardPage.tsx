@@ -33,7 +33,6 @@ export function DashboardPage(){
         <header className="dashboard-page__hero">
           <p className="dashboard-page__eyebrow">QIANSCAPE AI / TRAVEL CREATIVE STUDIO</p>
           <h1 id="dashboard-title">从一句话开始，<br />生成一套文旅表达。</h1>
-          <p className="dashboard-page__lede">输入地点、主题和想要传达的感觉</p>
         </header>
 
         <div id="composer">

@@ -1,7 +1,8 @@
 .dashboard-page--creative-home{
   position:relative;
   min-height:calc(100dvh - 72px);
-  padding:clamp(72px,9vh,112px) 0 56px;
+  box-sizing:border-box;
+  padding:clamp(56px,7vh,88px) 0 24px;
   overflow:hidden;
   isolation:isolate;
 }
@@ -17,6 +18,9 @@
 .dashboard-page__content{
   position:relative;
   z-index:1;
+  display:flex;
+  min-height:calc(100dvh - 72px - clamp(80px,10vh,112px));
+  flex-direction:column;
   width:min(90vw,1440px);
   margin:0 auto;
 }
@@ -28,7 +32,7 @@
 }
 
 .dashboard-page__hero{
-  margin-bottom:24px;
+  margin-bottom:20px;
 }
 
 .dashboard-page__eyebrow,
@@ -45,17 +49,10 @@
   margin:0;
   color:var(--color-ink-900);
   font-family:"Songti SC","Noto Serif CJK SC","Source Han Serif SC",serif;
-  font-size:clamp(40px,4.2vw,68px);
+  font-size:clamp(32px,3vw,48px);
   font-weight:500;
   line-height:1.12;
   letter-spacing:-.035em;
-}
-
-.dashboard-page__lede{
-  margin:16px 0 0;
-  color:var(--color-ink-500);
-  font-size:15px;
-  line-height:24px;
 }
 
 #composer .home-composer{width:100%}
@@ -72,36 +69,30 @@
 
 .home-template-rail{
   width:100%;
-  margin-top:44px;
+  margin-top:auto;
+  padding-top:clamp(52px,9vh,96px);
 }
 
 .home-template-rail__heading{
   display:flex;
   align-items:baseline;
-  justify-content:space-between;
-  gap:20px;
-  margin-bottom:16px;
+  justify-content:flex-start;
+  margin-bottom:8px;
 }
 
 .home-template-rail__heading h2{
   margin:0;
   color:var(--color-ink-900);
-  font-size:18px;
-  line-height:26px;
-}
-
-.home-template-rail__heading span{
-  color:var(--color-ink-500);
-  font-size:12px;
-  line-height:18px;
+  font-size:14px;
+  line-height:22px;
 }
 
 .home-template-rail__track{
   display:grid;
-  grid-auto-columns:clamp(300px,32vw,420px);
+  grid-auto-columns:clamp(220px,20vw,270px);
   grid-auto-flow:column;
   justify-content:start;
-  gap:20px;
+  gap:16px;
   overflow-x:auto;
   padding:2px 2px 12px;
   scroll-snap-type:inline mandatory;
@@ -116,26 +107,26 @@
 
 .home-template-card__heading{
   display:flex;
-  min-height:32px;
+  min-height:26px;
   align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  padding:0 2px 8px;
+  justify-content:flex-start;
+  gap:8px;
+  padding:0 2px 5px;
 }
 
 .home-template-card__heading h3{
   margin:0;
   color:var(--color-ink-900);
-  font-size:15px;
+  font-size:13px;
   font-weight:600;
-  line-height:22px;
+  line-height:20px;
 }
 
 .home-template-card__heading a{
   color:var(--color-ink-500);
-  font-size:12px;
+  font-size:11px;
   font-weight:500;
-  line-height:18px;
+  line-height:16px;
   text-underline-offset:3px;
 }
 
@@ -162,11 +153,11 @@
 
 .home-template-card__check{
   position:absolute;
-  right:12px;
-  bottom:12px;
+  right:10px;
+  bottom:10px;
   display:grid;
-  width:24px;
-  height:24px;
+  width:20px;
+  height:20px;
   place-items:center;
   color:#fefefe;
   background:var(--color-primary-600);
@@ -177,16 +168,15 @@
 .home-template-card .template-preview{aspect-ratio:16/9}
 
 @media (max-width:767px){
-  .dashboard-page--creative-home{min-height:calc(100dvh - 60px);padding:56px 0 40px}
+  .dashboard-page--creative-home{min-height:calc(100dvh - 60px);padding:40px 0 18px}
+  .dashboard-page__content{min-height:calc(100dvh - 60px - 58px)}
   .dashboard-page__content{width:calc(100% - 32px)}
   .dashboard-page__hero,#composer{width:100%}
   .dashboard-page__hero{margin-bottom:20px}
-  .dashboard-page__hero h1{font-size:clamp(36px,11vw,48px);letter-spacing:-.04em}
-  .dashboard-page__lede{font-size:14px;line-height:22px}
-  .home-template-rail{margin-top:32px}
-  .home-template-rail__heading{display:block;margin-bottom:12px}
-  .home-template-rail__heading span{display:block;margin-top:2px}
-  .home-template-rail__track{grid-auto-columns:min(82vw,340px);gap:16px;margin-right:-16px}
+  .dashboard-page__hero h1{font-size:clamp(28px,8vw,36px);letter-spacing:-.04em}
+  .home-template-rail{padding-top:40px}
+  .home-template-rail__heading{margin-bottom:6px}
+  .home-template-rail__track{grid-auto-columns:min(62vw,240px);gap:14px;margin-right:-16px}
 }
 
 @media (prefers-reduced-motion:reduce){

@@ -14,7 +14,6 @@ export function HomeTemplateRail({selectedWorkflowId,onSelect}:HomeTemplateRailP
     <section aria-labelledby="home-template-title" className="home-template-rail">
       <div className="home-template-rail__heading">
         <h2 id="home-template-title">常用模板</h2>
-        <span>选择后输入一句话即可开始</span>
       </div>
       <div className="home-template-rail__track">
         {TEMPLATE_CONFIGS.map(template=>{

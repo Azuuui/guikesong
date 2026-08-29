@@ -17,7 +17,8 @@ describe('DashboardPage',()=>{
     renderPage();
     expect(screen.getByTestId('particle-reveal-background')).toBeInTheDocument();
     expect(screen.getByRole('heading',{level:1,name:'从一句话开始，生成一套文旅表达。'})).toBeVisible();
-    expect(screen.getByRole('textbox',{name:'一句话创作需求'})).toBeVisible();
+    expect(screen.getByRole('textbox',{name:'一句话创作需求'})).toHaveAttribute('placeholder','输入地点、主题和想要传达的感觉');
+    expect(screen.queryByText('输入地点、主题和想要传达的感觉')).not.toBeInTheDocument();
   });
 
   it('默认选择小红书图鉴，点击其他模板只切换并保留输入',async()=>{
