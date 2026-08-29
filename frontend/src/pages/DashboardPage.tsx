@@ -145,7 +145,7 @@ export function DashboardPage() {
           <section aria-labelledby="recent-tasks-title" className="dashboard-recent">
             <div className="section-heading">
               <h2 id="recent-tasks-title">继续最近的创作</h2>
-              <Link to="/history">查看全部历史</Link>
+              <Link aria-label="查看全部本机历史记录" to="/history">查看全部历史</Link>
             </div>
             <RecentTaskList records={state.records} thumbnailUrls={thumbnailUrls} />
           </section>

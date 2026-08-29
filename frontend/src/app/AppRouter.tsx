@@ -1,8 +1,10 @@
-import {createBrowserRouter, useLocation} from 'react-router-dom';
+import {createBrowserRouter} from 'react-router-dom';
 import {DashboardPage} from '../pages/DashboardPage';
 import {CreatePage} from '../pages/CreatePage';
 import {ResultPage} from '../pages/ResultPage';
 import {TemplatesPage} from '../pages/TemplatesPage';
+import {HistoryPage} from '../pages/HistoryPage';
+import {HistoryDetailPage} from '../pages/HistoryDetailPage';
 import {AppShell} from './AppShell';
 
 export const ROUTES = {
@@ -13,31 +15,6 @@ export const ROUTES = {
   history: '/history',
   historyDetail: '/history/:recordId',
 } as const;
-
-type TemporaryPageProps = {
-  title: string;
-  description: string;
-};
-
-function TemporaryPage({title, description}: TemporaryPageProps) {
-  const headingId = `page-${title}`;
-  const location = useLocation();
-  const state = location.state as {historySaveWarning?: unknown} | null;
-  const historySaveWarning = title === '生成结果' && typeof state?.historySaveWarning === 'string'
-    ? state.historySaveWarning
-    : undefined;
-
-  return (
-    <section aria-labelledby={headingId} className="page-placeholder">
-      <p className="page-placeholder__eyebrow">文旅营销素材生成</p>
-      <h1 id={headingId}>{title}</h1>
-      <p>{description}</p>
-      {historySaveWarning ? (
-        <p className="page-placeholder__warning" role="alert">{historySaveWarning}</p>
-      ) : null}
-    </section>
-  );
-}
 
 export const appRouter = createBrowserRouter([
   {
@@ -61,11 +38,11 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: ROUTES.history,
-        element: <TemporaryPage title="历史记录" description="管理当前浏览器保存的最近结果。" />,
+        element: <HistoryPage />,
       },
       {
         path: ROUTES.historyDetail,
-        element: <TemporaryPage title="历史详情" description="查看保存在本机的完整生成结果。" />,
+        element: <HistoryDetailPage />,
       },
     ],
   },
