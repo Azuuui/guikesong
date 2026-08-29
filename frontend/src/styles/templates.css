@@ -1,26 +1,28 @@
-.templates-page{max-width:1240px}
-.templates-page .page-header{max-width:760px;margin-bottom:40px}
+.templates-page{max-width:920px}
+.templates-page .page-header{max-width:680px;margin-bottom:24px}
 .templates-page .page-header .templates-page__eyebrow{margin:0 0 12px;color:var(--color-ink-500);font:500 11px/16px "SFMono-Regular",Menlo,Consolas,monospace;letter-spacing:.12em}
-.templates-page .page-header h1{font-family:"Songti SC","Noto Serif CJK SC","Source Han Serif SC",serif;font-size:clamp(38px,4vw,58px);line-height:1.12;font-weight:500}
+.templates-page .page-header h1{font-family:"Songti SC","Noto Serif CJK SC","Source Han Serif SC",serif;font-size:clamp(30px,3vw,40px);line-height:1.14;font-weight:500}
+.templates-page .page-header p{font-size:13px;line-height:21px}
 
-.template-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.template-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .template-card{min-width:0;overflow:hidden;background:var(--color-surface-000);border:1px solid var(--color-border-200);border-radius:var(--radius-lg);box-shadow:var(--shadow-low);transition:border-color 160ms var(--ease-standard),transform 160ms var(--ease-standard)}
 .template-card:hover{border-color:rgb(20 20 20 / 24%);transform:translateY(-1px)}
 .template-card:focus-within{outline:2px solid rgb(230 0 18 / 60%);outline-offset:2px}
-.template-card__media{aspect-ratio:16/10;overflow:hidden;background:var(--color-surface-100);border-bottom:1px solid var(--color-border-100)}
+.template-card__media{aspect-ratio:16/9;overflow:hidden;background:var(--color-surface-100);border-bottom:1px solid var(--color-border-100)}
 .template-preview{width:100%;height:100%;overflow:hidden;background:var(--color-surface-100)}
 .template-preview__image{width:100%;height:100%;object-fit:cover;transition:transform 260ms var(--ease-standard),filter 180ms var(--ease-standard)}
 .template-card:hover .template-preview__image,.home-template-card__select:hover .template-preview__image{transform:scale(1.018);filter:saturate(1.04)}
 .template-preview--original-ip .template-preview__image{object-position:50% 42%}
 .template-preview--xhs-atlas .template-preview__image{object-position:50% 52%}
-.template-card__content{display:grid;gap:20px;padding:24px}
-.template-card__heading h2,.template-card__heading h3{margin:0 0 8px;color:var(--color-ink-900);font-size:22px;line-height:30px}
+.template-card__content{display:grid;gap:14px;padding:16px}
+.template-card__heading h2,.template-card__heading h3{margin:0 0 5px;color:var(--color-ink-900);font-size:18px;line-height:25px}
+.template-card__heading p{font-size:12px;line-height:19px}
 .template-card__heading p,.template-card__details dd,.template-card__compact-summary{margin:0;color:var(--color-ink-500)}
-.template-card__details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 24px;margin:0}
-.template-card__details dt{margin:0 0 4px;color:var(--color-ink-700);font-size:13px;font-weight:600;line-height:20px}
-.template-card__details dd{margin-left:0;font-size:13px;line-height:20px}
+.template-card__details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:0}
+.template-card__details dt{margin:0 0 2px;color:var(--color-ink-700);font-size:12px;font-weight:600;line-height:18px}
+.template-card__details dd{margin-left:0;font-size:11px;line-height:17px}
 .template-card__compact-summary{display:none;font-size:12px;line-height:18px}
-.template-card__actions{display:flex;align-items:center;gap:16px}
+.template-card__actions{display:flex;align-items:center;gap:12px}
 .template-card__action{display:inline-flex;min-width:44px;min-height:44px;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;color:#fefefe;background:var(--color-primary-600);border:1px solid var(--color-primary-600);border-radius:var(--radius-md);font-weight:600;text-decoration:none;transition:background-color 160ms var(--ease-standard),transform 160ms var(--ease-standard)}
 .template-card__action:hover{background:var(--color-primary-700)}
 .template-card__action:active{transform:scale(.98)}
@@ -51,7 +53,7 @@
 
 @media (max-width:767px){
   .template-gallery{grid-template-columns:1fr;gap:16px}
-  .template-card__content{padding:20px}
+  .template-card__content{padding:16px}
   .template-card__details{grid-template-columns:1fr}
   .template-card__actions{align-items:flex-start;flex-direction:column;gap:4px}
   .template-card__action{width:100%}
