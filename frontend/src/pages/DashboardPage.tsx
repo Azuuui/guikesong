@@ -70,7 +70,7 @@ function RecentTaskList({records, thumbnailUrls}: {
             </span>
             <span className="recent-task__body">
               <strong>{record.response.copy.title || record.userPrompt}</strong>
-              <span>{template?.name ?? '文旅素材'}　{formatHistoryTime(record.createdAt)}</span>
+              <span>{template?.name ?? '文旅素材'} {formatHistoryTime(record.createdAt)}</span>
             </span>
             <span className={`recent-task__status recent-task__status--${record.response.status}`}>
               <strong>{statusLabel}</strong>

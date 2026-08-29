@@ -1,9 +1,13 @@
 # 本地系统文件
 .DS_Store
 
-# 运行时参考素材：后端持久保存，但不提交到代码仓库
+# 运行时素材：后端持久保存，但不提交到代码仓库
 data/reference-assets/*
 !data/reference-assets/.gitkeep
+data/ip-profiles/*
+!data/ip-profiles/.gitkeep
+data/generated-assets/*
+!data/generated-assets/.gitkeep
 
 # 本地环境配置
 .env
@@ -14,7 +18,3 @@ data/reference-assets/*
 node_modules/
 dist/
 coverage/
-node_modules
-dist
-data/reference-assets
-.env

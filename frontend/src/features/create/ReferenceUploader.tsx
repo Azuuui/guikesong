@@ -155,7 +155,7 @@ export function ReferenceUploader({
               </span>
               <span className="reference-preview__copy">
                 <strong title={entry.file.name}>{entry.file.name}</strong>
-                <span>{formatFileSize(entry.file.size)}　{fileStatusLabel(status)}</span>
+                <span>{formatFileSize(entry.file.size)} {fileStatusLabel(status)}</span>
               </span>
               <button
                 aria-label={`移除参考图片 ${entry.file.name}`}

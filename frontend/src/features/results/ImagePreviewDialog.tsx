@@ -68,20 +68,27 @@ export function ImagePreviewDialog({
 
   useEffect(() => {
     isMountedRef.current = true;
+    const dialog = dialogRef.current;
     return () => {
       isMountedRef.current = false;
       isOpenRef.current = false;
       downloadRunRef.current += 1;
-      if (dialogRef.current?.open) dialogRef.current.close();
+      if (dialog?.open) dialog.close();
     };
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    downloadRunRef.current += 1;
+  // 打开或切换页面时重置下载状态：渲染期调整状态，避免级联渲染
+  const resetKey = isOpen ? `open:${selectedPage?.id ?? ''}` : 'closed';
+  const [lastResetKey, setLastResetKey] = useState(resetKey);
+  if (lastResetKey !== resetKey) {
+    setLastResetKey(resetKey);
     setIsDownloading(false);
     setDownloadFeedback(undefined);
-  }, [isOpen, selectedPage?.id]);
+  }
+
+  useEffect(() => {
+    downloadRunRef.current += 1;
+  }, [resetKey]);
 
   useEffect(() => {
     if (!isOpen || previewPages.length < 2) return;

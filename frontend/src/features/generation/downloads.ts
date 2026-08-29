@@ -89,6 +89,7 @@ async function fetchImageBlob(url:string,fallbackMessage:string):Promise<Blob>{
 
 function safeBasename(filename:string,fallback:string):string{
   const normalized=filename.replaceAll('\\','/');
+  // eslint-disable-next-line no-control-regex -- 文件名需要剥离控制字符
   const basename=normalized.split('/').at(-1)?.replace(/[\u0000-\u001f\u007f]/gu,'').trim()??'';
   return basename&&basename!=='.'&&basename!=='..'?basename:fallback;
 }

@@ -76,11 +76,14 @@ export function ResultDetail({
   const failedCount = response.pages.length - successfulCount;
   const title = response.copy.title.trim() || fallbackTitle(userPrompt);
 
-  useEffect(() => {
+  // 结果切换时重置本地状态：渲染期调整状态，避免级联渲染
+  const [lastRequestId, setLastRequestId] = useState(response.requestId);
+  if (lastRequestId !== response.requestId) {
+    setLastRequestId(response.requestId);
     setSelectedPageId(firstSelectedPageId(response.pages));
     setPreviewOpen(false);
     setUnavailableImageIds(new Set());
-  }, [response.pages, response.requestId]);
+  }
 
   useEffect(() => () => {
     if (feedbackTimerRef.current !== undefined) window.clearTimeout(feedbackTimerRef.current);

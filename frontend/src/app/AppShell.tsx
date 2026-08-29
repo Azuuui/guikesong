@@ -60,9 +60,12 @@ export function AppShell() {
   ).env?.VITE_PROVIDER_MODE;
   const runtimeMode = providerMode === 'real' ? '真实模型' : 'Mock 模式';
 
-  useEffect(() => {
+  // 路由变化时收起移动端导航：渲染期调整状态，避免级联渲染
+  const [lastPathname, setLastPathname] = useState(location.pathname);
+  if (lastPathname !== location.pathname) {
+    setLastPathname(location.pathname);
     setIsMobileNavigationOpen(false);
-  }, [location.pathname]);
+  }
 
   useEffect(() => {
     const desktopBreakpoint = window.matchMedia('(min-width: 768px)');

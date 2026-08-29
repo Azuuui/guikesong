@@ -1,7 +1,10 @@
-import express from 'express'; import cors from 'cors'; import multer from 'multer'; import fs from 'fs'; import path from 'path'; import crypto from 'crypto'; import {validateRequest,TEMPLATE_LABELS,GenerateRequest,GenerateResponse,ReferenceAsset} from '../../shared/types';
-const app=express(); app.use(cors()); app.use(express.json()); const dir=path.resolve('data/reference-assets'); fs.mkdirSync(dir,{recursive:true}); const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:10*1024*1024}});
-app.get('/api/health',(_,res)=>res.json({ok:true,mode:process.env.PROVIDER_MODE||'mock'}));
-app.post('/api/reference-assets',upload.array('files',4),(req,res)=>{const files=(req.files||[]) as Express.Multer.File[]; if(!files.length)return res.status(400).json({error:'请上传图片'}); const out:ReferenceAsset[]=[]; for(const f of files){const type=f.mimetype; if(!['image/jpeg','image/png','image/webp'].includes(type)) return res.status(400).json({error:'仅支持 JPG、PNG、WebP'}); const sig=f.buffer.subarray(0,4).toString('hex'); if((type==='image/png'&&sig!=='89504e47')||(type==='image/jpeg'&&!sig.startsWith('ffd8'))||(type==='image/webp'&&f.buffer.subarray(8,12).toString()!=='WEBP')) return res.status(400).json({error:'图片签名无效'}); const id=crypto.randomBytes(18).toString('base64url'); const ext=type==='image/jpeg'?'jpg':type.split('/')[1]; fs.writeFileSync(path.join(dir,`${id}.${ext}`),f.buffer); out.push({assetId:id,url:`/api/reference-assets/${id}`,originalName:f.originalname.replace(/[^\w.-]/g,'_'),mediaType:type as any,size:f.size,createdAt:new Date().toISOString()}); } res.json({assets:out});});
-app.get('/api/reference-assets/:id',(req,res)=>{const f=fs.readdirSync(dir).find(x=>x.startsWith(req.params.id+'.')); if(!f)return res.sendStatus(404); res.sendFile(path.join(dir,f));});
-app.post('/api/generate',async(req,res)=>{const e=validateRequest(req.body); if(e)return res.status(400).json({error:e}); const r=req.body as GenerateRequest; const name=TEMPLATE_LABELS[r.templateId]; const copy={title:`${name}｜${r.userPrompt.slice(0,20)}`,body:`围绕“${r.userPrompt}”，打造一套可直接发布的文旅营销内容。`,tags:['文旅营销',name,'旅行灵感']}; const count=r.templateId==='travel-cards'?4:3; const pages=Array.from({length:count},(_,i)=>({id:`p${i+1}`,pageType:i===0?'cover':i===count-1?'ending':'content',filename:`${r.templateId}-${i+1}.svg`,status:'succeeded',imageUrl:`data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200"><rect width="100%" height="100%" fill="#${['0f766e','1d4ed8','be123c','7c3aed'][i%4]}"/><text x="50%" y="50%" fill="white" font-size="48" text-anchor="middle">${name}</text></svg>`)}`,alt:copy.title} satisfies GenerateResponse['pages'][number])); const response:GenerateResponse={requestId:crypto.randomUUID(),templateId:r.templateId,status:'succeeded',copy,pages,warnings:[]}; res.json(response);});
-app.listen(Number(process.env.PORT)||8787,()=>console.log('backend on 8787'));
+import 'dotenv/config';
+import {createApp} from './app';
+import {loadPublicConfig} from './config/env';
+
+const config = loadPublicConfig();
+const app = createApp({providerMode: config.providerMode});
+
+app.listen(config.port, () => {
+  console.log(`backend on ${config.port} (${config.providerMode})`);
+});
