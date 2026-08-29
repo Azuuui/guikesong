@@ -11,6 +11,8 @@ data/ip-profiles/*
 !data/ip-profiles/.gitkeep
 data/generated-assets/*
 !data/generated-assets/.gitkeep
+data/generation-jobs/*
+!data/generation-jobs/.gitkeep
 backend/data/
 
 # 本地环境配置
