@@ -520,9 +520,18 @@ describe('original-ip workflow', () => {
         loadReferenceImage: vi.fn(async () => 'data:image/png;base64,ref'),
         saveGeneratedImage: harness.deps.saveGeneratedImage,
       },
+      travelGuide: {
+        providers: harness.deps.providers,
+        saveGeneratedImage: harness.deps.saveGeneratedImage,
+      },
+      ugcPhotoCampaign: {
+        providers: harness.deps.providers,
+        loadPhotoImage: vi.fn(async () => 'data:image/png;base64,photo'),
+        saveGeneratedImage: harness.deps.saveGeneratedImage,
+      },
     });
 
-    expect(registry.list()).toEqual(['original-ip', 'xhs-atlas']);
+    expect(registry.list()).toEqual(['original-ip', 'xhs-atlas', 'travel-guide', 'ugc-photo-campaign']);
     expect(registry.get('original-ip').id).toBe('original-ip');
 
     const result = await registry.get('original-ip').run(REQUEST, CONTEXT);

@@ -625,9 +625,18 @@ describe('xhs-atlas workflow', () => {
         saveGeneratedImage: harness.deps.saveGeneratedImage,
       },
       xhsAtlas: harness.deps,
+      travelGuide: {
+        providers: harness.deps.providers,
+        saveGeneratedImage: harness.deps.saveGeneratedImage,
+      },
+      ugcPhotoCampaign: {
+        providers: harness.deps.providers,
+        loadPhotoImage: vi.fn(async () => 'data:image/png;base64,photo'),
+        saveGeneratedImage: harness.deps.saveGeneratedImage,
+      },
     });
 
-    expect(registry.list()).toEqual(['original-ip', 'xhs-atlas']);
+    expect(registry.list()).toEqual(['original-ip', 'xhs-atlas', 'travel-guide', 'ugc-photo-campaign']);
     expect(registry.get('xhs-atlas').id).toBe('xhs-atlas');
 
     const result = await registry.get('xhs-atlas').run(REQUEST, CONTEXT);

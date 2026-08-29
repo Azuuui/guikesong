@@ -102,6 +102,23 @@ const BROAD_DESTINATIONS = new Set([
 /** 纯数字／符号组合显然不是地点。 */
 const NON_PLACE_PATTERN = /^[\d\s\p{P}\p{S}]+$/u;
 
+/**
+ * 目的地校验（长度、范围、地名形态），返回面向用户的错误消息；合法时返回 undefined。
+ * 前端表单复用同一份规则，保证两端校验一致。
+ */
+export function travelGuideDestinationError(destination: string): string | undefined {
+  const trimmed = destination.trim();
+  if (trimmed.length < 2) return '请输入目的地，如"成都"或"杭州西湖"';
+  if (trimmed.length > 30) return '目的地不超过 30 字';
+  if (BROAD_DESTINATIONS.has(trimmed)) {
+    return '目的地范围过大，请输入城市或景点，如"成都"或"杭州西湖"';
+  }
+  if (NON_PLACE_PATTERN.test(trimmed)) {
+    return '请输入一个具体的目的地，如"成都"或"杭州西湖"';
+  }
+  return undefined;
+}
+
 function assertDestination(destination: string): void {
   if (BROAD_DESTINATIONS.has(destination)) {
     throw new WorkflowValidationError(

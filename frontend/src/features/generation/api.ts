@@ -18,6 +18,8 @@ const PAGE_STATUSES=new Set(['succeeded','failed']);
 const RESULT_STATUSES=new Set(['succeeded','partial']);
 const IP_PAGE_ROLES=new Set(['brand-cover','identity-system','product-system','scene-application','overview']);
 const XHS_PAGE_ROLES=new Set(['cover','content']);
+const TRAVEL_GUIDE_PAGE_ROLES=new Set(['cover','route','transport','stay','food']);
+const UGC_PAGE_ROLES=new Set(['poster']);
 const SAFE_BUSINESS_ERRORS=new Set([
   '请上传图片',
   '仅支持 JPG、PNG、WebP',
@@ -41,6 +43,15 @@ const SAFE_BUSINESS_ERRORS=new Set([
   '请输入选题',
   '选题需包含数量，如"贵阳的12种美食"',
   '选题数量至少为 2',
+  '请输入目的地，如"成都"或"杭州西湖"',
+  '目的地不超过 30 字',
+  '目的地范围过大，请输入城市或景点，如"成都"或"杭州西湖"',
+  '请输入一个具体的目的地，如"成都"或"杭州西湖"',
+  '请上传 1～7 张投稿照片',
+  '投稿照片最多 7 张',
+  '活动主题不超过 50 字',
+  '投稿昵称不超过 30 字',
+  '投稿昵称数量需与照片数量一致',
 ]);
 
 export class ApiError extends Error{
@@ -137,6 +148,89 @@ function isAtlasList(value:unknown):boolean{
   return items.every(item=>isAtlasListItem(item));
 }
 
+/** 校验三候选标题结构（travel-guide / ugc-photo-campaign / xhs-atlas 共用）。 */
+function isThreeTitles(value:unknown):value is string[]{
+  return Array.isArray(value)
+    &&value.length===3
+    &&value.every((title:unknown)=>typeof title==='string'&&title.length>0);
+}
+
+function isTravelGuideTopSpot(value:unknown):boolean{
+  if(!isRecord(value)) return false;
+  return isNonEmptyString(value.name)&&isNonEmptyString(value.oneLiner);
+}
+
+function isTravelGuideDayPlan(value:unknown):boolean{
+  if(!isRecord(value)) return false;
+  const {route,links,tips}=value;
+  return typeof value.day==='number'
+    &&Number.isInteger(value.day)
+    &&value.day>=1
+    &&isNonEmptyString(value.theme)
+    &&isNonEmptyString(value.slogan)
+    &&Array.isArray(route)
+    &&route.every(stop=>isRecord(stop)
+      &&typeof stop.order==='number'
+      &&isNonEmptyString(stop.spot)
+      &&typeof stop.desc==='string')
+    &&Array.isArray(links)
+    &&links.every(link=>isRecord(link)
+      &&typeof link.from==='number'
+      &&typeof link.to==='number')
+    &&Array.isArray(tips)
+    &&isStringArray(tips);
+}
+
+/** travel-guide 行程 JSON 守卫：校验 UI 渲染依赖的结构完整性。 */
+function isTravelGuideTrip(value:unknown):boolean{
+  if(!isRecord(value)) return false;
+  const {cover,dayPlans,transport,stay,food}=value;
+  if(!isNonEmptyString(value.destination)
+    ||typeof value.days!=='number'
+    ||!Number.isInteger(value.days)
+    ||value.days<1
+    ||value.days>3
+    ||!isNonEmptyString(value.vibe)
+    ||!isNonEmptyString(value.tocNote)) return false;
+  if(!isRecord(cover)
+    ||!isNonEmptyString(cover.titleLine1)
+    ||!isNonEmptyString(cover.titleLine2)
+    ||!isNonEmptyString(cover.subtitle)
+    ||!Array.isArray(cover.topSpots)
+    ||!cover.topSpots.every(isTravelGuideTopSpot)) return false;
+  if(!Array.isArray(dayPlans)
+    ||dayPlans.length!==value.days
+    ||!dayPlans.every(isTravelGuideDayPlan)) return false;
+  if(!isRecord(transport)
+    ||!Array.isArray(transport.arrival)
+    ||!Array.isArray(transport.local)
+    ||!transport.arrival.every(item=>isRecord(item)&&isNonEmptyString(item.way)&&isNonEmptyString(item.detail))
+    ||!transport.local.every(item=>isRecord(item)&&isNonEmptyString(item.way)&&isNonEmptyString(item.detail))
+    ||!isNonEmptyString(transport.pitfall)
+    ||!isNonEmptyString(transport.slogan)) return false;
+  if(!isRecord(stay)
+    ||!Array.isArray(stay.areas)
+    ||!stay.areas.every(area=>isRecord(area)&&isNonEmptyString(area.area)&&isNonEmptyString(area.fit)&&isNonEmptyString(area.why))
+    ||!Array.isArray(stay.tiers)
+    ||!stay.tiers.every(tier=>isRecord(tier)&&isNonEmptyString(tier.tier)&&isNonEmptyString(tier.range))
+    ||!isNonEmptyString(stay.logic)
+    ||!isNonEmptyString(stay.slogan)) return false;
+  return isRecord(food)
+    &&Array.isArray(food.items)
+    &&food.items.every(item=>isRecord(item)&&isNonEmptyString(item.name)&&isNonEmptyString(item.eat)&&isNonEmptyString(item.where))
+    &&isNonEmptyString(food.slogan);
+}
+
+/** ugc-photo-campaign 海报页守卫：附带第几张照片与投稿昵称。 */
+function isUgcPhotoCampaignPage(value:unknown):boolean{
+  if(!isWorkflowPage(value,UGC_PAGE_ROLES)) return false;
+  const page=value as WorkflowPageBase&{role:string;photoIndex?:unknown;credit?:unknown};
+  return typeof page.photoIndex==='number'
+    &&Number.isInteger(page.photoIndex)
+    &&page.photoIndex>=1
+    &&isOptionalString(page.credit);
+}
+
 /** API 运行时守卫：按 workflowId 校验专属 copy、pages 与 artifacts。 */
 function isGenerateResult(value:unknown):value is GenerateResult{
   if(!isRecord(value)) return false;
@@ -160,6 +254,27 @@ function isGenerateResult(value:unknown):value is GenerateResult{
         isRecord(value.overview)&&isNonEmptyString(value.overview.pageId)&&isNonEmptyString(value.overview.filename)
       ))) return false;
     return value.pages.every(page=>isWorkflowPage(page,IP_PAGE_ROLES));
+  }
+
+  if(value.workflowId==='travel-guide'){
+    const {copy}=value;
+    if(!isThreeTitles(copy.titles)
+      ||typeof copy.body!=='string'
+      ||!isStringArray(copy.tags)
+      ||!isNonEmptyString(value.destination)
+      ||typeof value.days!=='number'
+      ||!isTravelGuideTrip(value.trip)) return false;
+    return value.pages.every(page=>isWorkflowPage(page,TRAVEL_GUIDE_PAGE_ROLES));
+  }
+
+  if(value.workflowId==='ugc-photo-campaign'){
+    const {copy}=value;
+    if(!isThreeTitles(copy.titles)
+      ||typeof copy.body!=='string'
+      ||!isStringArray(copy.tags)
+      ||!isNonEmptyString(value.mood)
+      ||!isOptionalString(value.campaignTheme)) return false;
+    return value.pages.every(isUgcPhotoCampaignPage);
   }
 
   const {copy}=value;

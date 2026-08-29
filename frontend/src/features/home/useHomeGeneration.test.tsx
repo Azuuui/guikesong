@@ -1,14 +1,14 @@
 import {act,renderHook} from '@testing-library/react';
 import {describe,expect,it,vi} from 'vitest';
-import type {ReferenceAsset} from '../../../../shared/types';
-import {makeOriginalIpResult,makeXhsAtlasResult} from '../../test/fixtures';
+import type {ReferenceAsset,WorkflowId} from '../../../../shared/types';
+import {makeOriginalIpResult,makeTravelGuideResult,makeUgcPhotoCampaignResult,makeXhsAtlasResult} from '../../test/fixtures';
 import {useHomeGeneration,type HomeGenerationDependencies} from './useHomeGeneration';
 
 const ASSET:ReferenceAsset={
   assetId:'asset-1',url:'/asset-1',originalName:'ref.png',mediaType:'image/png',size:3,createdAt:'2026-08-29T00:00:00.000Z',
 };
 
-function setup(overrides:Partial<HomeGenerationDependencies>={},initialWorkflowId:'xhs-atlas'|'original-ip'='xhs-atlas'){
+function setup(overrides:Partial<HomeGenerationDependencies>={},initialWorkflowId:WorkflowId='xhs-atlas'){
   const navigate=vi.fn();
   const dependencies:HomeGenerationDependencies={
     createObjectURL:vi.fn(()=>`blob:preview-${Math.random()}`),
@@ -98,6 +98,51 @@ describe('useHomeGeneration',()=>{
     const preview=result.current.attachments[0]?.previewUrl;
     unmount();
     expect(dependencies.revokeObjectURL).toHaveBeenCalledWith(preview);
+  });
+
+  it('手绘攻略校验目的地且拒绝参考图，合法目的地直接生成',async()=>{
+    const generated=makeTravelGuideResult({requestId:'request-guide'});
+    const {result,dependencies,navigate}=setup({generateAssets:vi.fn().mockResolvedValue(generated)},'travel-guide');
+
+    act(()=>result.current.setPrompt('中国'));
+    await act(async()=>result.current.submit());
+    expect(result.current.error).toBe('目的地范围过大，请输入城市或景点，如"成都"或"杭州西湖"');
+    expect(dependencies.generateAssets).not.toHaveBeenCalled();
+
+    const file=new File(['image'],'ref.png',{type:'image/png'});
+    act(()=>{
+      result.current.setPrompt('成都');
+      result.current.addFiles([file]);
+    });
+    expect(result.current.error).toBe('手绘攻略不需要参考图片，直接输入目的地即可。');
+    expect(result.current.attachments).toHaveLength(0);
+    expect(dependencies.uploadReferenceFiles).not.toHaveBeenCalled();
+
+    await act(async()=>result.current.submit());
+    expect(dependencies.generateAssets).toHaveBeenCalledWith({
+      workflowId:'travel-guide',destination:'成都',
+    },expect.any(AbortSignal));
+    expect(dependencies.saveResult).toHaveBeenCalledWith(expect.objectContaining({workflowId:'travel-guide',result:generated}));
+    expect(navigate).toHaveBeenCalledWith('/results/request-guide',expect.objectContaining({state:expect.objectContaining({result:generated})}));
+  });
+
+  it('游客返图校验照片数量并上传后生成',async()=>{
+    const generated=makeUgcPhotoCampaignResult({requestId:'request-ugc'});
+    const {result,dependencies}=setup({generateAssets:vi.fn().mockResolvedValue(generated)},'ugc-photo-campaign');
+
+    act(()=>result.current.setPrompt('夏天的风'));
+    await act(async()=>result.current.submit());
+    expect(result.current.error).toBe('游客返图需要至少 1 张照片。');
+    expect(dependencies.generateAssets).not.toHaveBeenCalled();
+
+    const photo=new File(['photo'],'photo.png',{type:'image/png'});
+    act(()=>result.current.addFiles([photo]));
+    await act(async()=>result.current.submit());
+    expect(dependencies.uploadReferenceFiles).toHaveBeenCalledWith([photo],expect.any(AbortSignal));
+    expect(dependencies.generateAssets).toHaveBeenCalledWith({
+      workflowId:'ugc-photo-campaign',photoAssetIds:['asset-1'],campaignTheme:'夏天的风',
+    },expect.any(AbortSignal));
+    expect(dependencies.saveResult).toHaveBeenCalledWith(expect.objectContaining({workflowId:'ugc-photo-campaign',result:generated}));
   });
 
   it('不会把非业务异常原文直接暴露给用户',async()=>{

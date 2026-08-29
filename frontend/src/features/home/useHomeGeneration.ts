@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import type {GenerateRequest,GenerateResult,IpProfilePublicOutput,ReferenceAsset,WorkflowId} from '../../../../shared/types';
+import {travelGuideDestinationError} from '../../../../shared/workflowSchemas';
 import {HISTORY_SAVE_WARNING,type WorkflowSaveInput} from '../create/types';
 import {ApiError,generateAssets,getActiveIpProfile,uploadReferenceFiles} from '../generation/api';
 import {historyRepository} from '../history/historyRepository';
@@ -8,6 +9,14 @@ import type {HomeAttachment as HomeComposerAttachment} from './HomeComposer';
 
 const ALLOWED_MEDIA_TYPES=new Set(['image/jpeg','image/png','image/webp']);
 const MAX_FILE_BYTES=10*1024*1024;
+
+/** 各工作流在主页可添加的图片数量上限与超限提示。 */
+const WORKFLOW_FILE_RULES:Record<WorkflowId,{maxFiles:number;overflowMessage:string}>={
+  'original-ip':{maxFiles:1,overflowMessage:'原创 IP 只能添加 1 张产品图片。'},
+  'xhs-atlas':{maxFiles:4,overflowMessage:'小红书图鉴最多添加 4 张参考图。'},
+  'travel-guide':{maxFiles:0,overflowMessage:'手绘攻略不需要参考图片，直接输入目的地即可。'},
+  'ugc-photo-campaign':{maxFiles:7,overflowMessage:'游客返图最多添加 7 张照片。'},
+};
 
 type Navigate=(to:string,options?:{state?:unknown;replace?:boolean})=>void;
 
@@ -49,7 +58,18 @@ function validationMessage(workflowId:WorkflowId,prompt:string,files:readonly Ho
     if(files.length>4) return '小红书图鉴最多添加 4 张参考图。';
     return;
   }
-  if(files.length!==1) return '原创 IP 创作需要添加 1 张产品图片。';
+  if(workflowId==='original-ip'){
+    if(files.length!==1) return '原创 IP 创作需要添加 1 张产品图片。';
+    return;
+  }
+  if(workflowId==='travel-guide'){
+    const destinationError=travelGuideDestinationError(prompt);
+    if(destinationError) return destinationError;
+    if(files.length>0) return '手绘攻略不需要参考图片，直接输入目的地即可。';
+    return;
+  }
+  if(files.length<1) return '游客返图需要至少 1 张照片。';
+  if(files.length>7) return '游客返图最多添加 7 张照片。';
   return;
 }
 
@@ -96,9 +116,9 @@ export function useHomeGeneration({
       setError('单张图片不能超过 10MB。');
       return;
     }
-    const maxFiles=selectedWorkflowId==='original-ip'?1:4;
+    const {maxFiles,overflowMessage}=WORKFLOW_FILE_RULES[selectedWorkflowId];
     if(attachments.length+files.length>maxFiles){
-      setError(selectedWorkflowId==='original-ip'?'原创 IP 只能添加 1 张产品图片。':'小红书图鉴最多添加 4 张参考图。');
+      setError(overflowMessage);
       return;
     }
     const next=files.map((file,index)=>{
@@ -165,6 +185,25 @@ export function useHomeGeneration({
           ipProfileId:profile.ipProfileId,
           productAssetId:assets[0]!.assetId,
           productDescription:normalizedPrompt,
+        };
+        stage='generate';
+        const result=await dependencies.generateAssets(request,controller.signal);
+        await complete(result,assets);
+      }else if(selectedWorkflowId==='travel-guide'){
+        stage='generate';
+        request={workflowId:'travel-guide',destination:normalizedPrompt};
+        const result=await dependencies.generateAssets(request,controller.signal);
+        await complete(result,[]);
+      }else if(selectedWorkflowId==='ugc-photo-campaign'){
+        stage='upload';
+        setAttachments(current=>current.map(attachment=>({...attachment,status:'uploading'})));
+        const assets=await dependencies.uploadReferenceFiles(selectedAttachments.map(item=>item.file),controller.signal);
+        if(assets.length!==selectedAttachments.length) throw new Error('投稿照片上传结果数量不一致');
+        setAttachments(current=>current.map(attachment=>({...attachment,status:'uploaded'})));
+        request={
+          workflowId:'ugc-photo-campaign',
+          photoAssetIds:assets.map(asset=>asset.assetId),
+          campaignTheme:normalizedPrompt,
         };
         stage='generate';
         const result=await dependencies.generateAssets(request,controller.signal);

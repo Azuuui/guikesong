@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {WorkflowPageBase} from '../../../../shared/types';
-import {makeGenerateResult,makeOriginalIpResult,makeXhsAtlasResult} from '../../test/fixtures';
+import {makeGenerateResult,makeOriginalIpResult,makeTravelGuideResult,makeUgcPhotoCampaignResult,makeXhsAtlasResult} from '../../test/fixtures';
 import {
   buildPackage,
   copyText,
@@ -184,6 +184,54 @@ describe('generation downloads',()=>{
     expect(fetch).toHaveBeenNthCalledWith(2,result.pages[1].imageUrl,{
       signal:expect.any(AbortSignal),
     });
+  });
+
+  it('builds a travel-guide package with release copy and trip manifest',async()=>{
+    const result=makeTravelGuideResult({failedIndexes:[2]});
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(blobResponse('cover'))
+      .mockResolvedValueOnce(blobResponse('route-1'))
+      .mockResolvedValueOnce(blobResponse('transport'))
+      .mockResolvedValueOnce(blobResponse('stay'))
+      .mockResolvedValueOnce(blobResponse('food'));
+
+    const zip=await JSZip.loadAsync(await (await buildPackage(result)).arrayBuffer());
+
+    expect(Object.keys(zip.files).sort()).toEqual([
+      'travel-guide-cover.svg',
+      'travel-guide-route-1.svg',
+      'travel-guide-transport.svg',
+      'travel-guide-stay.svg',
+      'travel-guide-food.svg',
+      '发布文案.txt',
+      '行程.json',
+    ].sort());
+    await expect(zip.file('发布文案.txt')?.async('string')).resolves.toBe(
+      '候选标题：\n成都两日手绘攻略\n成都慢游手册\n收藏这份成都攻略\n正文：按天整理的成都行程正文。\n标签：#成都、#手绘攻略',
+    );
+    await expect(JSON.parse(await zip.file('行程.json')!.async('string'))).toEqual(result.trip);
+    expect(fetch).toHaveBeenCalledTimes(5);
+    expect(fetch).not.toHaveBeenCalledWith(result.pages[2].imageUrl,expect.anything());
+  });
+
+  it('builds a ugc-photo-campaign package with release copy and successful posters only',async()=>{
+    const result=makeUgcPhotoCampaignResult({failedIndexes:[1]});
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(blobResponse('poster-one'))
+      .mockResolvedValueOnce(blobResponse('poster-three'));
+
+    const zip=await JSZip.loadAsync(await (await buildPackage(result)).arrayBuffer());
+
+    expect(Object.keys(zip.files).sort()).toEqual([
+      'ugc-poster-1.svg',
+      'ugc-poster-3.svg',
+      '发布文案.txt',
+    ].sort());
+    await expect(zip.file('发布文案.txt')?.async('string')).resolves.toBe(
+      '候选标题：\n夏天的风\n把夏天收进相册\n风吹过的地方\n正文：整组照片的共同情绪正文。\n标签：#夏天、#心情图集',
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).not.toHaveBeenCalledWith(result.pages[1].imageUrl,expect.anything());
   });
 
   it('includes the overview image in an original-ip package when present',async()=>{

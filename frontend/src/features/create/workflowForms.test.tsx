@@ -5,6 +5,8 @@ import type {
   IpProfilePublicOutput,
   OriginalIpResult,
   ReferenceAsset,
+  TravelGuideResult,
+  UgcPhotoCampaignResult,
   XhsAtlasResult,
 } from '../../../../shared/types';
 import {getTemplateConfig} from '../../config/templates';
@@ -16,7 +18,9 @@ import {
   uploadReferenceFiles,
 } from '../generation/api';
 import {OriginalIpCreateForm} from './original-ip/OriginalIpCreateForm';
+import {TravelGuideCreateForm} from './travel-guide/TravelGuideCreateForm';
 import {type WorkflowCompletion, type WorkflowFormProps} from './types';
+import {UgcPhotoCampaignCreateForm} from './ugc-photo-campaign/UgcPhotoCampaignCreateForm';
 import {WorkflowCreateRouter} from './WorkflowCreateRouter';
 import {XhsAtlasCreateForm} from './xhs-atlas/XhsAtlasCreateForm';
 
@@ -114,6 +118,75 @@ function makeXhsAtlasResult(): XhsAtlasResult {
     },
     pages: [
       {id: 'page-cover', role: 'cover', filename: 'cover.png', status: 'succeeded', imageUrl: '/api/generated-assets/atlas-cover.png', alt: '图鉴封面'},
+    ],
+    warnings: [],
+  };
+}
+
+function makeTravelGuideResult(): TravelGuideResult {
+  return {
+    requestId: 'request-guide',
+    workflowId: 'travel-guide',
+    status: 'succeeded',
+    copy: {titles: ['成都两日', '成都慢游', '成都吃玩'], body: '正文', tags: ['#成都']},
+    destination: '成都',
+    days: 2,
+    trip: {
+      destination: '成都',
+      days: 2,
+      vibe: '市井与松弛',
+      tocNote: '目录说明',
+      cover: {
+        titleLine1: '成都',
+        titleLine2: '两日手绘攻略',
+        subtitle: '市井与松弛',
+        topSpots: [{name: '人民公园', oneLiner: '喝盖碗茶'}],
+      },
+      dayPlans: [
+        {
+          day: 1,
+          theme: '老城漫步',
+          slogan: '从一杯盖碗茶开始',
+          route: [
+            {order: 1, spot: '人民公园', desc: '喝茶', illustration: '竹椅茶馆', feature: '盖碗茶', hours: '2小时', ticket: '免费', recommend: '早上'},
+          ],
+          links: [{from: 1, to: 1, mode: '步行', duration: '10分钟'}],
+          tips: ['早去人少'],
+        },
+      ],
+      transport: {
+        arrival: [{way: '双流机场', detail: '地铁 10 号线进城'}],
+        local: [{way: '地铁', detail: '扫码进站'}],
+        pitfall: '景区打车排队久',
+        slogan: '交通一页看懂',
+      },
+      stay: {
+        areas: [{area: '春熙路', fit: '首次到访', why: '地铁交汇'}],
+        tiers: [{tier: '舒适', range: '300-500'}],
+        logic: '想逛街住春熙路',
+        slogan: '住哪一页看懂',
+      },
+      food: {
+        items: [{name: '甜水面', eat: '蘸红糖辣酱', where: '洞子口'}],
+        slogan: '美食一页看懂',
+      },
+    },
+    pages: [
+      {id: 'page-cover', role: 'cover', filename: 'cover.png', status: 'succeeded', imageUrl: '/api/generated-assets/guide-cover.png', alt: '攻略封面'},
+    ],
+    warnings: [],
+  };
+}
+
+function makeUgcPhotoCampaignResult(): UgcPhotoCampaignResult {
+  return {
+    requestId: 'request-ugc',
+    workflowId: 'ugc-photo-campaign',
+    status: 'succeeded',
+    copy: {titles: ['夏天', '夏天回来了', '风吹过'], body: '正文', tags: ['#夏天']},
+    mood: '清爽',
+    pages: [
+      {id: 'page-1', role: 'poster', filename: 'poster-1.png', status: 'succeeded', imageUrl: '/api/generated-assets/poster-1.png', alt: '第 1 张心情海报', photoIndex: 1},
     ],
     warnings: [],
   };
@@ -628,6 +701,269 @@ describe('OriginalIpCreateForm', () => {
   });
 });
 
+describe('TravelGuideCreateForm', () => {
+  function renderGuideForm(
+    props: Partial<WorkflowFormProps> = {},
+    initialDestination?: string,
+  ) {
+    const formProps = {...makeFormProps(), ...props};
+    render(
+      <TravelGuideCreateForm
+        initialDestination={initialDestination}
+        template={getTemplateConfig('travel-guide')}
+        {...formProps}
+      />,
+    );
+    return formProps;
+  }
+
+  async function submitGuide(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', {name: '开始生成'}));
+  }
+
+  it('预填初始目的地', () => {
+    renderGuideForm({}, '杭州西湖');
+
+    expect(screen.getByLabelText('目的地')).toHaveValue('杭州西湖');
+  });
+
+  it('空目的地阻止提交并提示', async () => {
+    const user = userEvent.setup();
+    const props = renderGuideForm();
+
+    await submitGuide(user);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('请输入目的地，如"成都"或"杭州西湖"');
+    expect(generateAssetsMock).not.toHaveBeenCalled();
+    expect(props.onComplete).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['中国', '目的地范围过大，请输入城市或景点，如"成都"或"杭州西湖"'],
+    ['123', '请输入一个具体的目的地，如"成都"或"杭州西湖"'],
+  ])('目的地 %s 阻止提交并提示', async (destination, message) => {
+    const user = userEvent.setup();
+    const props = renderGuideForm();
+
+    await user.type(screen.getByLabelText('目的地'), destination);
+    await submitGuide(user);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(message);
+    expect(generateAssetsMock).not.toHaveBeenCalled();
+    expect(props.onComplete).not.toHaveBeenCalled();
+  });
+
+  it('合法目的地按契约提交且不上传参考图', async () => {
+    const user = userEvent.setup();
+    generateAssetsMock.mockResolvedValue(makeTravelGuideResult());
+    const props = renderGuideForm();
+
+    await user.type(screen.getByLabelText('目的地'), '成都');
+    await submitGuide(user);
+
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1));
+    expect(generateAssetsMock).toHaveBeenCalledTimes(1);
+    expect(generateAssetsMock.mock.calls[0][0]).toEqual({
+      workflowId: 'travel-guide',
+      destination: '成都',
+    });
+    expect(uploadReferenceFilesMock).not.toHaveBeenCalled();
+    expect(props.saveResult).toHaveBeenCalledWith(expect.objectContaining({
+      workflowId: 'travel-guide',
+      userPrompt: '成都',
+      referenceFiles: [],
+    }));
+  });
+
+  it('生成失败显示安全错误并可重试', async () => {
+    const user = userEvent.setup();
+    generateAssetsMock.mockRejectedValueOnce(new Error('provider exploded'));
+    generateAssetsMock.mockResolvedValueOnce(makeTravelGuideResult());
+    const props = renderGuideForm({}, '成都');
+
+    await submitGuide(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('素材生成失败，请稍后重试。');
+    expect(props.onComplete).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', {name: '重新生成'}));
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1));
+  });
+
+  it('历史保存失败不阻断完成并携带警告', async () => {
+    const user = userEvent.setup();
+    generateAssetsMock.mockResolvedValue(makeTravelGuideResult());
+    const onComplete = vi.fn();
+    renderGuideForm({onComplete, saveResult: vi.fn().mockRejectedValue(new Error('idb full'))}, '成都');
+
+    await submitGuide(user);
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    const completion = onComplete.mock.calls[0][0] as WorkflowCompletion;
+    expect(completion.historySaveWarning).toBe('素材已经生成，但未能保存到本机历史。请先下载素材包。');
+    expect(completion.userPrompt).toBe('成都');
+    expect(completion.result.requestId).toBe('request-guide');
+  });
+});
+
+describe('UgcPhotoCampaignCreateForm', () => {
+  function renderUgcForm(
+    props: Partial<WorkflowFormProps> = {},
+    initialCampaignTheme?: string,
+    initialPhotoFiles?: File[],
+  ) {
+    const formProps = {...makeFormProps(), ...props};
+    render(
+      <UgcPhotoCampaignCreateForm
+        initialCampaignTheme={initialCampaignTheme}
+        initialPhotoFiles={initialPhotoFiles}
+        template={getTemplateConfig('ugc-photo-campaign')}
+        {...formProps}
+      />,
+    );
+    return formProps;
+  }
+
+  async function submitUgc(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', {name: '开始生成'}));
+  }
+
+  it('预填初始活动主题', () => {
+    renderUgcForm({}, '夏天的风');
+
+    expect(screen.getByLabelText('活动主题，可选')).toHaveValue('夏天的风');
+  });
+
+  it('无投稿照片阻止提交并提示', async () => {
+    const user = userEvent.setup();
+    const props = renderUgcForm();
+
+    await submitUgc(user);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('请上传 1～7 张投稿照片');
+    expect(uploadReferenceFilesMock).not.toHaveBeenCalled();
+    expect(generateAssetsMock).not.toHaveBeenCalled();
+    expect(props.onComplete).not.toHaveBeenCalled();
+  });
+
+  it('第八张投稿照片被拒绝并提示', async () => {
+    const user = userEvent.setup();
+    renderUgcForm();
+
+    await user.upload(
+      screen.getByLabelText(/选择投稿照片/),
+      ['a.png', 'b.png', 'c.png', 'd.png', 'e.png', 'f.png', 'g.png', 'h.png'].map(imageFile),
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('最多上传 7 张图片，已忽略 1 个超出数量的文件。');
+    const previews = screen.getByRole('list', {name: '已选择的图片'});
+    expect(within(previews).getAllByRole('listitem')).toHaveLength(7);
+  });
+
+  it('照片与投稿昵称随请求提交，主题留空不发送', async () => {
+    const user = userEvent.setup();
+    const files = [imageFile('photo-1.png'), imageFile('photo-2.png')];
+    uploadReferenceFilesMock.mockResolvedValue(files.map((file, index) => makeAsset(`asset-${index + 1}`, file.name)));
+    generateAssetsMock.mockResolvedValue(makeUgcPhotoCampaignResult());
+    const props = renderUgcForm();
+
+    await user.upload(screen.getByLabelText(/选择投稿照片/), files);
+    await user.type(screen.getByLabelText('第 1 张图片的投稿昵称'), '阿紫');
+    await submitUgc(user);
+
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1));
+    expect(uploadReferenceFilesMock).toHaveBeenCalledWith(files, expect.any(AbortSignal));
+    expect(generateAssetsMock.mock.calls[0][0]).toEqual({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1', 'asset-2'],
+      photoCredits: ['阿紫', ''],
+    });
+    expect(props.saveResult).toHaveBeenCalledWith(expect.objectContaining({
+      workflowId: 'ugc-photo-campaign',
+      userPrompt: '',
+    }));
+  });
+
+  it('活动主题随请求提交', async () => {
+    const user = userEvent.setup();
+    const files = [imageFile('photo-1.png')];
+    uploadReferenceFilesMock.mockResolvedValue([makeAsset('asset-1', 'photo-1.png')]);
+    generateAssetsMock.mockResolvedValue(makeUgcPhotoCampaignResult());
+    const onComplete = vi.fn();
+    renderUgcForm({onComplete});
+
+    await user.type(screen.getByLabelText('活动主题，可选'), '夏天的风');
+    await user.upload(screen.getByLabelText(/选择投稿照片/), files);
+    await submitUgc(user);
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(generateAssetsMock.mock.calls[0][0]).toEqual({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1'],
+      campaignTheme: '夏天的风',
+      photoCredits: [''],
+    });
+    const completion = onComplete.mock.calls[0][0] as WorkflowCompletion;
+    expect(completion.userPrompt).toBe('夏天的风');
+  });
+
+  it('从历史恢复投稿照片并可直接提交', async () => {
+    const user = userEvent.setup();
+    const restoredFiles = [imageFile('restored-1.png')];
+    uploadReferenceFilesMock.mockResolvedValue([makeAsset('asset-restored', 'restored-1.png')]);
+    generateAssetsMock.mockResolvedValue(makeUgcPhotoCampaignResult());
+    const props = renderUgcForm({}, '夏天的风', restoredFiles);
+
+    const previews = screen.getByRole('list', {name: '已选择的图片'});
+    expect(within(previews).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(previews).getByText('restored-1.png')).toBeInTheDocument();
+
+    await submitUgc(user);
+
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1));
+    expect(uploadReferenceFilesMock).toHaveBeenCalledWith(restoredFiles, expect.any(AbortSignal));
+  });
+
+  it('投稿照片上传失败显示安全错误且可重试', async () => {
+    const user = userEvent.setup();
+    const files = [imageFile('photo-1.png')];
+    uploadReferenceFilesMock.mockRejectedValueOnce(new Error('upload failed'));
+    generateAssetsMock.mockResolvedValue(makeUgcPhotoCampaignResult());
+    const props = renderUgcForm();
+
+    await user.upload(screen.getByLabelText(/选择投稿照片/), files);
+    await submitUgc(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('投稿照片上传失败，请稍后重试。');
+    expect(generateAssetsMock).not.toHaveBeenCalled();
+    expect(props.onComplete).not.toHaveBeenCalled();
+    const previews = screen.getByRole('list', {name: '已选择的图片'});
+    expect(within(previews).getAllByRole('listitem')).toHaveLength(1);
+
+    uploadReferenceFilesMock.mockResolvedValue([makeAsset('asset-1', 'photo-1.png')]);
+    await user.click(screen.getByRole('button', {name: '重新生成'}));
+
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1));
+  });
+
+  it('生成失败显示安全错误并可重试', async () => {
+    const user = userEvent.setup();
+    const files = [imageFile('photo-1.png')];
+    uploadReferenceFilesMock.mockResolvedValue([makeAsset('asset-1', 'photo-1.png')]);
+    generateAssetsMock.mockRejectedValueOnce(new Error('provider exploded'));
+    generateAssetsMock.mockResolvedValueOnce(makeUgcPhotoCampaignResult());
+    const props = renderUgcForm();
+
+    await user.upload(screen.getByLabelText(/选择投稿照片/), files);
+    await submitUgc(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('素材生成失败，请稍后重试。');
+
+    await user.click(screen.getByRole('button', {name: '重新生成'}));
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1));
+  });
+});
+
 describe('WorkflowCreateRouter', () => {
   it('按 workflowId 分派原创 IP 表单', async () => {
     getActiveIpProfileMock.mockResolvedValue(makeLockedProfile());
@@ -654,5 +990,35 @@ describe('WorkflowCreateRouter', () => {
 
     expect(screen.getByLabelText('图鉴选题')).toBeVisible();
     expect(screen.queryByLabelText('产品描述')).not.toBeInTheDocument();
+  });
+
+  it('按 workflowId 分派手绘攻略表单', () => {
+    render(
+      <WorkflowCreateRouter
+        initialPrompt="成都"
+        onComplete={vi.fn()}
+        saveResult={vi.fn().mockResolvedValue(undefined)}
+        template={getTemplateConfig('travel-guide')}
+      />,
+    );
+
+    expect(screen.getByLabelText('目的地')).toBeVisible();
+    expect(screen.getByLabelText('目的地')).toHaveValue('成都');
+    expect(screen.queryByLabelText('图鉴选题')).not.toBeInTheDocument();
+  });
+
+  it('按 workflowId 分派游客返图表单', () => {
+    render(
+      <WorkflowCreateRouter
+        initialPrompt="夏天的风"
+        onComplete={vi.fn()}
+        saveResult={vi.fn().mockResolvedValue(undefined)}
+        template={getTemplateConfig('ugc-photo-campaign')}
+      />,
+    );
+
+    expect(screen.getByLabelText('活动主题，可选')).toBeVisible();
+    expect(screen.getByLabelText('活动主题，可选')).toHaveValue('夏天的风');
+    expect(screen.getByText('还没有选择投稿照片')).toBeVisible();
   });
 });

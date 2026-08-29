@@ -5,11 +5,13 @@ import {describe,expect,it,vi} from 'vitest';
 import {HomeTemplateRail} from './HomeTemplateRail';
 
 describe('HomeTemplateRail',()=>{
-  it('默认按图鉴在前、原创 IP 在后的顺序展示',()=>{
+  it('默认按图鉴、原创 IP、手绘攻略、照片图集的顺序展示',()=>{
     render(<MemoryRouter><HomeTemplateRail onSelect={vi.fn()} selectedWorkflowId="xhs-atlas" /></MemoryRouter>);
     expect(screen.getAllByRole('button',{name:/选择模板/}).map(button=>button.getAttribute('aria-label'))).toEqual([
       '选择模板：小红书图鉴创作',
       '选择模板：原创 IP 商品化',
+      '选择模板：目的地手绘攻略',
+      '选择模板：照片心情图集',
     ]);
   });
 

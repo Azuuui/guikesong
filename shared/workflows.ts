@@ -230,6 +230,8 @@ export interface TravelGuideTrip {
   stay: {
     areas: {area: string; fit: string; why: string}[];
     tiers: {tier: string; range: string}[];
+    /** 一句选择逻辑（什么人住哪个片区），写入页面底部方框。 */
+    logic: string;
     slogan: string;
   };
   food: {

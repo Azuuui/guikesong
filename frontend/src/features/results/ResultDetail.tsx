@@ -24,6 +24,8 @@ import {copyText, DownloadError, downloadPackage, downloadPage} from '../generat
 import {formatHistoryTime} from '../history/time';
 import {ImagePreviewDialog} from './ImagePreviewDialog';
 import {OriginalIpResultPanel} from './OriginalIpResult';
+import {TravelGuideResultPanel} from './TravelGuideResult';
+import {UgcPhotoCampaignResultPanel} from './UgcPhotoCampaignResult';
 import {XhsAtlasResultPanel} from './XhsAtlasResult';
 
 export type ResultDetailProps = {
@@ -62,7 +64,7 @@ function fallbackTitle(prompt: string): string {
   return `${trimmed.slice(0, 30)}…`;
 }
 
-/** 原创 IP 取唯一标题；图鉴取首个候选标题，缺省时回退用户输入。 */
+/** 原创 IP 取唯一标题；其余工作流取首个候选标题，缺省时回退用户输入。 */
 function resultTitle(result: GenerateResult, userPrompt: string): string {
   if (result.workflowId === 'original-ip') {
     return result.copy.title.trim() || fallbackTitle(userPrompt);
@@ -70,13 +72,23 @@ function resultTitle(result: GenerateResult, userPrompt: string): string {
   return result.copy.titles[0]?.trim() || fallbackTitle(userPrompt);
 }
 
-/** 图鉴优先选中封面；否则选中第一张成功页。 */
+/** 图鉴与攻略优先选中封面；否则选中第一张成功页。 */
 function firstSelectedPageId(result: GenerateResult): string | undefined {
-  if (result.workflowId === 'xhs-atlas') {
+  if (result.workflowId === 'xhs-atlas' || result.workflowId === 'travel-guide') {
     const cover = result.pages.find(page => page.role === 'cover');
     if (cover) return cover.id;
   }
   return result.pages.find(page => page.status === 'succeeded')?.id ?? result.pages[0]?.id;
+}
+
+type AnyResultPage = GenerateResult['pages'][number];
+
+/** 缩略图标签：路线页带天数，其余按页型 + 序号。 */
+function pageLabel(page: AnyResultPage, index: number): string {
+  if (page.role === 'route' && typeof page.day === 'number') {
+    return `第${page.day}天路线`;
+  }
+  return `${PAGE_ROLE_LABELS[page.role]} ${index + 1}`;
 }
 
 /** 复制按钮：自带成功/失败反馈，工作流文案面板复用。 */
@@ -241,9 +253,10 @@ export function ResultDetail({
         <aside aria-label="页面缩略图" className="result-detail__thumbnails">
           {result.pages.map((page, index) => {
             const selected = page.id === selectedPage?.id;
+            const label = pageLabel(page, index);
             return (
               <button
-                aria-label={`${PAGE_ROLE_LABELS[page.role]} ${index + 1}${page.status === 'failed' ? '，未生成成功' : ''}`}
+                aria-label={`${label}${page.status === 'failed' ? '，未生成成功' : ''}`}
                 aria-pressed={selected}
                 className={`result-thumbnail${selected ? ' result-thumbnail--selected' : ''}${page.status === 'failed' ? ' result-thumbnail--failed' : ''}`}
                 key={page.id}
@@ -257,7 +270,7 @@ export function ResultDetail({
                     <ImageSquare aria-hidden="true" size={22} />
                   )}
                 </span>
-                <span className="result-thumbnail__label">{PAGE_ROLE_LABELS[page.role]} {index + 1}</span>
+                <span className="result-thumbnail__label">{label}</span>
               </button>
             );
           })}
@@ -300,7 +313,11 @@ export function ResultDetail({
           <OriginalIpResultPanel result={result} />
         ) : result.workflowId === 'xhs-atlas' ? (
           <XhsAtlasResultPanel result={result} />
-        ) : null}
+        ) : result.workflowId === 'travel-guide' ? (
+          <TravelGuideResultPanel result={result} />
+        ) : (
+          <UgcPhotoCampaignResultPanel result={result} />
+        )}
       </div>
 
       <ImagePreviewDialog

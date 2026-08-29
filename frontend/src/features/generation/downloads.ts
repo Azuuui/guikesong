@@ -137,7 +137,7 @@ export async function downloadPage(page:WorkflowPageBase):Promise<void>{
 
 function packageCopy(result:GenerateResult):string{
   const {body,tags}=result.copy;
-  // 原创 IP 只有一个标题；图鉴导出 3 个候选标题供挑选。
+  // 原创 IP 只有一个标题；其余工作流导出 3 个候选标题供挑选。
   const titleBlock=result.workflowId==='original-ip'
     ?`标题：${result.copy.title}`
     :`候选标题：\n${result.copy.titles.join('\n')}`;
@@ -150,13 +150,17 @@ export async function buildPackage(result:GenerateResult):Promise<Blob>{
     throw new DownloadError(0,'素材包图片过多，无法下载');
   }
   const zip=new JSZip();
-  // 原创 IP 导出单一文案；图鉴导出可直接发布的文案与结构化清单。
+  // 原创 IP 导出单一文案；其余工作流导出可直接发布的文案。
   const copyFilename=result.workflowId==='original-ip'?'文案.txt':'发布文案.txt';
   zip.file(copyFilename,packageCopy(result));
   const usedFilenames=new Set([copyFilename.toLowerCase()]);
   if(result.workflowId==='xhs-atlas'){
     zip.file('清单.json',JSON.stringify(result.list,null,2));
     usedFilenames.add('清单.json');
+  }
+  if(result.workflowId==='travel-guide'){
+    zip.file('行程.json',JSON.stringify(result.trip,null,2));
+    usedFilenames.add('行程.json');
   }
   let totalImageBytes=0;
 

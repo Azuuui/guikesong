@@ -13,6 +13,8 @@ import {ReferenceAssetStore} from './storage/referenceAssetStore';
 import {loadPublicConfig} from './config/env';
 import {ApiError, toErrorResponse} from './http/apiError';
 import {ORIGINAL_IP_MOCK_FIXTURES} from './workflows/original-ip/mockFixtures';
+import {TRAVEL_GUIDE_MOCK_FIXTURES} from './workflows/travel-guide/mockFixtures';
+import {UGC_PHOTO_CAMPAIGN_MOCK_FIXTURES} from './workflows/ugc-photo-campaign/mockFixtures';
 import {XHS_ATLAS_MOCK_FIXTURES} from './workflows/xhs-atlas/mockFixtures';
 import {createDefaultWorkflowRegistry, type WorkflowRegistry} from './workflows/registry';
 
@@ -29,10 +31,18 @@ const MOCK_FIXTURES: MockFixtures = {
   text: {
     ...ORIGINAL_IP_MOCK_FIXTURES.text,
     ...XHS_ATLAS_MOCK_FIXTURES.text,
+    ...TRAVEL_GUIDE_MOCK_FIXTURES.text,
+    ...UGC_PHOTO_CAMPAIGN_MOCK_FIXTURES.text,
   },
   vision: {
     ...ORIGINAL_IP_MOCK_FIXTURES.vision,
     ...XHS_ATLAS_MOCK_FIXTURES.vision,
+    ...TRAVEL_GUIDE_MOCK_FIXTURES.vision,
+    ...UGC_PHOTO_CAMPAIGN_MOCK_FIXTURES.vision,
+  },
+  search: {
+    ...TRAVEL_GUIDE_MOCK_FIXTURES.search,
+    ...UGC_PHOTO_CAMPAIGN_MOCK_FIXTURES.search,
   },
 };
 
@@ -80,6 +90,15 @@ export function createApp(dependencies: AppDependencies = {}): Express {
       xhsAtlas: {
         providers,
         loadReferenceImage: assetId => referenceAssetStore.toDataUrl(assetId),
+        saveGeneratedImage: image => generatedAssetStore.saveImage(image.bytes, image.mediaType),
+      },
+      travelGuide: {
+        providers,
+        saveGeneratedImage: image => generatedAssetStore.saveImage(image.bytes, image.mediaType),
+      },
+      ugcPhotoCampaign: {
+        providers,
+        loadPhotoImage: assetId => referenceAssetStore.toDataUrl(assetId),
         saveGeneratedImage: image => generatedAssetStore.saveImage(image.bytes, image.mediaType),
       },
     });

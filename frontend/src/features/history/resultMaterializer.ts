@@ -62,14 +62,21 @@ function cloneResult(result:GenerateResult):GenerateResult{
       warnings:[...result.warnings],
     };
   }
-  // travel-guide / ugc-photo-campaign：Phase I 接入历史前的保守深拷贝。
-  const cloned={
+  if(result.workflowId==='travel-guide'){
+    return {
+      ...result,
+      copy:{...result.copy,titles:[...result.copy.titles],tags:[...result.copy.tags]},
+      trip:structuredClone(result.trip),
+      pages:result.pages.map(page=>({...page})),
+      warnings:[...result.warnings],
+    };
+  }
+  return {
     ...result,
     copy:{...result.copy,titles:[...result.copy.titles],tags:[...result.copy.tags]},
     pages:result.pages.map(page=>({...page})),
     warnings:[...result.warnings],
   };
-  return cloned as typeof result;
 }
 
 async function capturePageBlob(
@@ -190,9 +197,9 @@ export async function captureHistoryRecord({
   if(resultSnapshot.workflowId==='original-ip'&&!referenceFilesSnapshot[0]){
     throw new HistorySaveError('原创 IP 结果缺少产品图，无法保存本机历史。');
   }
-  // travel-guide / ugc-photo-campaign 的历史结构在 Phase I 接入。
-  if(resultSnapshot.workflowId!=='original-ip'&&resultSnapshot.workflowId!=='xhs-atlas'){
-    throw new HistorySaveError('该工作流暂不支持保存到本机历史。');
+  // 游客返图历史必须携带投稿照片快照，供重新生成时本地恢复。
+  if(resultSnapshot.workflowId==='ugc-photo-campaign'&&referenceFilesSnapshot.length===0){
+    throw new HistorySaveError('游客返图结果缺少投稿照片，无法保存本机历史。');
   }
   const captureController=new AbortController();
   let totalBytes=0;
@@ -221,6 +228,27 @@ export async function captureHistoryRecord({
         userPrompt,
         workflowId:'original-ip',
         productFile:referenceFilesSnapshot[0]!,
+        result:resultSnapshot,
+        pageBlobs,
+      };
+    }
+    if(resultSnapshot.workflowId==='travel-guide'){
+      return {
+        id:resultSnapshot.requestId,
+        createdAt:savedAt,
+        userPrompt,
+        workflowId:'travel-guide',
+        result:resultSnapshot,
+        pageBlobs,
+      };
+    }
+    if(resultSnapshot.workflowId==='ugc-photo-campaign'){
+      return {
+        id:resultSnapshot.requestId,
+        createdAt:savedAt,
+        userPrompt,
+        workflowId:'ugc-photo-campaign',
+        photoFiles:referenceFilesSnapshot,
         result:resultSnapshot,
         pageBlobs,
       };

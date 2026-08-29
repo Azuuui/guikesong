@@ -1,5 +1,10 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
-import type {OriginalIpResult,XhsAtlasResult} from '../../../../shared/workflows';
+import type {
+  OriginalIpResult,
+  TravelGuideResult,
+  UgcPhotoCampaignResult,
+  XhsAtlasResult,
+} from '../../../../shared/workflows';
 import type {GenerateRequest} from '../../../../shared/types';
 import {
   ApiError,
@@ -64,6 +69,114 @@ function makeXhsAtlasResult():XhsAtlasResult{
     pages:[
       {id:'page-cover',role:'cover',filename:'cover.png',status:'succeeded',imageUrl:'/api/generated-assets/atlas-cover.png',alt:'图鉴封面'},
       {id:'page-content-1',role:'content',filename:'content-1.png',status:'failed',alt:'图鉴正文页',error:'图片生成失败，请稍后重试'},
+    ],
+    warnings:['部分页面生成失败'],
+  };
+}
+
+function makeTravelGuideResult():TravelGuideResult{
+  return {
+    requestId:'request-guide',
+    workflowId:'travel-guide',
+    status:'succeeded',
+    copy:{titles:['标题一','标题二','标题三'],body:'正文',tags:['#旅行攻略','#成都旅行']},
+    destination:'成都',
+    days:2,
+    trip:{
+      destination:'成都',
+      days:2,
+      vibe:'一座来了就不想走的城市',
+      tocNote:'两天一夜：古城漫游 + 熊猫与市井',
+      cover:{
+        titleLine1:'成都',
+        titleLine2:'两天一夜漫游',
+        subtitle:'照着走就行',
+        topSpots:[
+          {name:'宽窄巷子',oneLiner:'青砖灰瓦里的老成都'},
+          {name:'人民公园',oneLiner:'一杯盖碗茶坐一下午'},
+          {name:'大熊猫繁育研究基地',oneLiner:'早上去看熊猫最活跃'},
+          {name:'武侯祠',oneLiner:'三国迷的红墙竹影'},
+          {name:'锦里',oneLiner:'灯笼亮起来后的川西夜市'},
+        ],
+      },
+      dayPlans:[
+        {
+          day:1,
+          theme:'古城漫游',
+          slogan:'把一天过慢',
+          route:[
+            {order:1,spot:'人民公园',desc:'本地人的晨间客厅',illustration:'竹椅盖碗茶',feature:'市井茶馆',hours:'全天',ticket:'免费',recommend:'点一杯素毛峰'},
+            {order:2,spot:'宽窄巷子',desc:'清代街区改的步行巷',illustration:'青砖老巷',feature:'清代街巷',hours:'全天',ticket:'免费',recommend:'早九点前拍照'},
+          ],
+          links:[{from:1,to:2,mode:'步行',duration:'约15min'}],
+          tips:['穿好走的鞋','第一天别排太满','茶馆本身就是行程'],
+        },
+        {
+          day:2,
+          theme:'熊猫与市井',
+          slogan:'看完熊猫再嗦碗粉',
+          route:[
+            {order:1,spot:'大熊猫繁育研究基地',desc:'全球最大的熊猫家',illustration:'啃竹子的熊猫',feature:'熊猫专属',hours:'以现场为准',ticket:'以现场为准',recommend:'开园直奔月亮产房'},
+            {order:2,spot:'东郊记忆',desc:'红砖厂房改的艺术区',illustration:'红砖厂房',feature:'文艺园区',hours:'全天',ticket:'免费',recommend:'中央火车头必拍'},
+          ],
+          links:[{from:1,to:2,mode:'地铁',duration:'约40min'}],
+          tips:['熊猫要趁早','行李可寄存前台','返程留足地铁时间'],
+        },
+      ],
+      transport:{
+        arrival:[{way:'天府机场→市区',detail:'地铁18号线直达'},{way:'双流机场→市区',detail:'地铁10号线转3号线'}],
+        local:[{way:'地铁',detail:'扫码乘车最方便'},{way:'共享单车',detail:'短途骑车比打车快'},{way:'出租车',detail:'起步价友好'}],
+        pitfall:'别在景区门口上黑车',
+        slogan:'落地不慌',
+      },
+      stay:{
+        areas:[
+          {area:'春熙路太古里',fit:'首次游客',why:'地铁交汇去哪都方便'},
+          {area:'宽窄巷子周边',fit:'慢游党',why:'步行可达老城景点'},
+        ],
+        tiers:[
+          {tier:'经济',range:'连锁酒店为主'},
+          {tier:'舒适',range:'设计感酒店'},
+          {tier:'品质',range:'高星酒店'},
+        ],
+        logic:'首次来选春熙路',
+        slogan:'住对地方',
+      },
+      food:{
+        items:[
+          {name:'钟水饺',eat:'红油甜辣口',where:'人民公园老字号'},
+          {name:'蛋烘糕',eat:'边烘边吃的点心',where:'建设路小吃街'},
+          {name:'冷锅串串',eat:'不冒烟的红油串串',where:'香香巷孃孃店'},
+          {name:'甜水面',eat:'粗面配甜辣酱',where:'洞子口老字号'},
+          {name:'三大炮',eat:'糯米团砸出脆响',where:'锦里入口'},
+          {name:'盖碗茶',eat:'素毛峰配瓜子',where:'鹤鸣茶社'},
+        ],
+        slogan:'辣是底线',
+      },
+    },
+    pages:[
+      {id:'page-guide-cover',role:'cover',filename:'cover.png',status:'succeeded',imageUrl:'/api/generated-assets/guide-cover.png',alt:'攻略封面'},
+      {id:'page-route-1',role:'route',day:1,filename:'route-1.png',status:'succeeded',imageUrl:'/api/generated-assets/route-1.png',alt:'Day 1 路线图'},
+      {id:'page-transport',role:'transport',filename:'transport.png',status:'succeeded',imageUrl:'/api/generated-assets/transport.png',alt:'交通专题页'},
+      {id:'page-stay',role:'stay',filename:'stay.png',status:'failed',alt:'住宿专题页',error:'图片生成失败，请稍后重试'},
+      {id:'page-food',role:'food',filename:'food.png',status:'succeeded',imageUrl:'/api/generated-assets/food.png',alt:'美食专题页'},
+    ],
+    warnings:['部分页面生成失败'],
+  };
+}
+
+function makeUgcPhotoCampaignResult():UgcPhotoCampaignResult{
+  return {
+    requestId:'request-ugc',
+    workflowId:'ugc-photo-campaign',
+    status:'partial',
+    copy:{titles:['标题一','标题二','标题三'],body:'正文',tags:['#旅行','#海边']},
+    mood:'治愈的海风',
+    campaignTheme:'夏天的风',
+    pages:[
+      {id:'page-poster-1',role:'poster',photoIndex:1,credit:'阿朱',filename:'poster-1.png',status:'succeeded',imageUrl:'/api/generated-assets/poster-1.png',alt:'第1张投稿海报'},
+      {id:'page-poster-2',role:'poster',photoIndex:2,credit:'阿紫',filename:'poster-2.png',status:'succeeded',imageUrl:'/api/generated-assets/poster-2.png',alt:'第2张投稿海报'},
+      {id:'page-poster-3',role:'poster',photoIndex:3,filename:'poster-3.png',status:'failed',alt:'第3张投稿海报',error:'图片生成失败，请稍后重试'},
     ],
     warnings:['部分页面生成失败'],
   };
@@ -198,6 +311,40 @@ describe('generation api',()=>{
     await expect(generateAssets(request)).resolves.toEqual(result);
   });
 
+  it('returns the validated travel-guide result with a complete trip',async()=>{
+    const result=makeTravelGuideResult();
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(result)));
+    const request:GenerateRequest={
+      workflowId:'travel-guide',
+      destination:'成都',
+    };
+
+    await expect(generateAssets(request)).resolves.toEqual(result);
+  });
+
+  it('returns the validated ugc-photo-campaign result with poster pages',async()=>{
+    const result=makeUgcPhotoCampaignResult();
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(result)));
+    const request:GenerateRequest={
+      workflowId:'ugc-photo-campaign',
+      photoAssetIds:['asset-a','asset-b','asset-c'],
+      campaignTheme:'夏天的风',
+      photoCredits:['阿朱','阿紫',''],
+    };
+
+    await expect(generateAssets(request)).resolves.toEqual(result);
+  });
+
+  it('accepts a ugc-photo-campaign result without optional theme and credits',async()=>{
+    const result=makeUgcPhotoCampaignResult();
+    delete result.campaignTheme;
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(result)));
+
+    await expect(
+      generateAssets({workflowId:'ugc-photo-campaign',photoAssetIds:['asset-a']}),
+    ).resolves.toEqual(result);
+  });
+
   it('rejects malformed successful generation responses with a safe ApiError',async()=>{
     vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ok:true})));
 
@@ -228,6 +375,38 @@ describe('generation api',()=>{
       result.workflowId='legacy-template';
       return result;
     }],
+    ['travel-guide with dayPlans count mismatch',()=>{
+      const result=makeTravelGuideResult() as unknown as Record<string,unknown>;
+      (result.trip as Record<string,unknown>).dayPlans=[
+        ((result.trip as Record<string,unknown>).dayPlans as unknown[])[0],
+      ];
+      return result;
+    }],
+    ['travel-guide with unknown page role',()=>{
+      const result=makeTravelGuideResult() as unknown as Record<string,unknown>;
+      (result.pages as Array<Record<string,unknown>>)[0].role='content';
+      return result;
+    }],
+    ['travel-guide without destination',()=>{
+      const result=makeTravelGuideResult() as unknown as Record<string,unknown>;
+      delete result.destination;
+      return result;
+    }],
+    ['ugc poster page without photoIndex',()=>{
+      const result=makeUgcPhotoCampaignResult() as unknown as Record<string,unknown>;
+      delete (result.pages as Array<Record<string,unknown>>)[0].photoIndex;
+      return result;
+    }],
+    ['ugc result without mood',()=>{
+      const result=makeUgcPhotoCampaignResult() as unknown as Record<string,unknown>;
+      delete result.mood;
+      return result;
+    }],
+    ['ugc result with two copy titles',()=>{
+      const result=makeUgcPhotoCampaignResult() as unknown as Record<string,unknown>;
+      (result.copy as Record<string,unknown>).titles=['标题一','标题二'];
+      return result;
+    }],
   ])('runtime guard rejects %s',async(_label,build)=>{
     vi.stubGlobal('fetch',vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(build())));
 
@@ -235,6 +414,24 @@ describe('generation api',()=>{
       status:200,
       message:'素材生成失败，请稍后重试',
     });
+  });
+
+  it('uses safe messages for the new workflows business errors',async()=>{
+    const fetchMock=vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({error:'目的地范围过大，请输入城市或景点，如"成都"或"杭州西湖"'},400))
+      .mockResolvedValueOnce(jsonResponse({error:'投稿照片最多 7 张'},400))
+      .mockResolvedValueOnce(jsonResponse({error:'敏感的内部错误信息'},400));
+    vi.stubGlobal('fetch',fetchMock);
+
+    await expect(
+      generateAssets({workflowId:'travel-guide',destination:'成都'}),
+    ).rejects.toMatchObject({status:400,message:'目的地范围过大，请输入城市或景点，如"成都"或"杭州西湖"'});
+    await expect(
+      generateAssets({workflowId:'ugc-photo-campaign',photoAssetIds:[]}),
+    ).rejects.toMatchObject({status:400,message:'投稿照片最多 7 张'});
+    await expect(
+      generateAssets({workflowId:'travel-guide',destination:'成都'}),
+    ).rejects.toMatchObject({status:400,message:'素材生成失败，请稍后重试'});
   });
 
   it('never exposes server errors even when the message looks readable',async()=>{

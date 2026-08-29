@@ -25,6 +25,12 @@ export type ReferenceUploaderProps = {
   emptyLabel?: string;
   selectLabel?: string;
   selectHint?: string;
+  /** 逐张补充输入（如投稿昵称）；传入 onCaptionsChange 即启用。 */
+  captions?: string[];
+  onCaptionsChange?: (captions: string[]) => void;
+  captionLabel?: string;
+  captionPlaceholder?: string;
+  captionMaxLength?: number;
 };
 
 function fileKey(file: File): string {
@@ -54,6 +60,11 @@ export function ReferenceUploader({
   emptyLabel = '还没有选择参考图片',
   selectLabel = '选择参考图片',
   selectHint = '图片会先在本机预览，生成时再上传',
+  captions,
+  onCaptionsChange,
+  captionLabel = '补充说明',
+  captionPlaceholder,
+  captionMaxLength = 30,
 }: ReferenceUploaderProps) {
   const [entries, setEntries] = useState<PreviewEntry[]>(() =>
     (initialFiles ?? []).map(file => ({
@@ -68,9 +79,19 @@ export function ReferenceUploader({
   const helpText = description ?? `最多 ${maxFiles} 张，支持 JPG、PNG、WebP，单张不超过 10MB。`;
 
   function updateEntries(nextEntries: PreviewEntry[]) {
+    const previousEntries = entriesRef.current;
     entriesRef.current = nextEntries;
     setEntries(nextEntries);
     onFilesChange(nextEntries.map(entry => entry.file));
+    if (onCaptionsChange) {
+      // 按原有顺序保留幸存条目的补充说明，新增条目从空字符串开始。
+      onCaptionsChange(
+        nextEntries.map(entry => {
+          const previousIndex = previousEntries.findIndex(prev => prev.key === entry.key);
+          return previousIndex >= 0 ? (captions?.[previousIndex] ?? '') : '';
+        }),
+      );
+    }
   }
 
   useEffect(() => () => {
@@ -171,7 +192,7 @@ export function ReferenceUploader({
 
       {entries.length > 0 ? (
         <ul aria-label="已选择的图片" className="reference-uploader__previews">
-          {entries.map(entry => (
+          {entries.map((entry, index) => (
             <li className="reference-preview" key={entry.key}>
               <span className="reference-preview__image">
                 <img alt={`${entry.file.name} 本地预览`} src={entry.url} />
@@ -179,6 +200,22 @@ export function ReferenceUploader({
               <span className="reference-preview__copy">
                 <strong title={entry.file.name}>{entry.file.name}</strong>
                 <span>{formatFileSize(entry.file.size)} {fileStatusLabel(status)}</span>
+                {onCaptionsChange ? (
+                  <input
+                    aria-label={`第 ${index + 1} 张图片的${captionLabel}`}
+                    className="reference-preview__caption"
+                    disabled={disabled}
+                    maxLength={captionMaxLength}
+                    onChange={event => {
+                      const next = entries.map((_, entryIndex) => captions?.[entryIndex] ?? '');
+                      next[index] = event.target.value;
+                      onCaptionsChange(next);
+                    }}
+                    placeholder={captionPlaceholder}
+                    type="text"
+                    value={captions?.[index] ?? ''}
+                  />
+                ) : null}
               </span>
               <button
                 aria-label={`移除图片 ${entry.file.name}`}

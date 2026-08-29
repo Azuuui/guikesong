@@ -9,6 +9,10 @@ import type {
   GenerateResult,
   OriginalIpRequest,
   OriginalIpResult,
+  TravelGuideRequest,
+  TravelGuideResult,
+  UgcPhotoCampaignRequest,
+  UgcPhotoCampaignResult,
   XhsAtlasRequest,
   XhsAtlasResult,
 } from '../../../shared/workflows';
@@ -70,6 +74,81 @@ function makeXhsAtlasResult(requestId: string): XhsAtlasResult {
   };
 }
 
+function makeTravelGuideResult(requestId: string): TravelGuideResult {
+  return {
+    requestId,
+    workflowId: 'travel-guide',
+    status: 'succeeded',
+    pages: [],
+    warnings: [],
+    copy: {titles: ['标题一', '标题二', '标题三'], body: '正文', tags: ['#旅行攻略']},
+    destination: '成都',
+    days: 2,
+    trip: {
+      destination: '成都',
+      days: 2,
+      vibe: '一座来了就不想走的城市',
+      tocNote: '两天一夜：古城漫游 + 熊猫与市井',
+      cover: {
+        titleLine1: '成都',
+        titleLine2: '两天一夜漫游',
+        subtitle: '照着走就行',
+        topSpots: [{name: '宽窄巷子', oneLiner: '青砖灰瓦里的老成都'}],
+      },
+      dayPlans: [
+        {
+          day: 1,
+          theme: '古城漫游',
+          slogan: '把一天过慢',
+          route: [
+            {
+              order: 1,
+              spot: '人民公园',
+              desc: '本地人的晨间客厅',
+              illustration: '竹椅盖碗茶',
+              feature: '市井茶馆',
+              hours: '全天',
+              ticket: '免费',
+              recommend: '点一杯素毛峰',
+            },
+          ],
+          links: [],
+          tips: ['穿好走的鞋'],
+        },
+      ],
+      transport: {
+        arrival: [{way: '高铁成都东站', detail: '地铁2号线约20分钟'}],
+        local: [{way: '地铁', detail: '扫码乘车最方便'}],
+        pitfall: '别上黑车',
+        slogan: '落地不慌',
+      },
+      stay: {
+        areas: [{area: '春熙路太古里', fit: '首次游客', why: '地铁交汇去哪都方便'}],
+        tiers: [{tier: '经济', range: '连锁酒店为主'}],
+        logic: '首次来选春熙路',
+        slogan: '住对地方',
+      },
+      food: {
+        items: [{name: '钟水饺', eat: '红油甜辣口', where: '人民公园老字号'}],
+        slogan: '辣是底线',
+      },
+    },
+  };
+}
+
+function makeUgcPhotoCampaignResult(requestId: string): UgcPhotoCampaignResult {
+  return {
+    requestId,
+    workflowId: 'ugc-photo-campaign',
+    status: 'succeeded',
+    pages: [],
+    warnings: [],
+    copy: {titles: ['标题一', '标题二', '标题三'], body: '正文', tags: ['#旅行']},
+    mood: '治愈的海风',
+    campaignTheme: '夏天的风',
+  };
+}
+
 describe('POST /api/generate', () => {
   let dataDir: string;
 
@@ -116,6 +195,70 @@ describe('POST /api/generate', () => {
     await request(app).post('/api/generate').send(xhsRequest).expect(200);
     expect(xhsRun).toHaveBeenCalledTimes(1);
     expect(xhsRun).toHaveBeenCalledWith(xhsRequest, {requestId: expect.any(String)});
+  });
+
+  it('新工作流请求按 workflowId 精确分派', async () => {
+    const travelRun = vi.fn(
+      async (_input: TravelGuideRequest, context: WorkflowContext) => makeTravelGuideResult(context.requestId),
+    );
+    const ugcRun = vi.fn(
+      async (_input: UgcPhotoCampaignRequest, context: WorkflowContext) => makeUgcPhotoCampaignResult(context.requestId),
+    );
+    const app = createApp({
+      providerMode: 'mock',
+      dataDir,
+      registry: createWorkflowRegistry([
+        asWorkflow({id: 'travel-guide', run: travelRun}),
+        asWorkflow({id: 'ugc-photo-campaign', run: ugcRun}),
+      ]),
+    });
+
+    const travelRequest = {workflowId: 'travel-guide', destination: '成都'};
+    const travelResponse = await request(app)
+      .post('/api/generate')
+      .send(travelRequest)
+      .expect(200);
+    expect(travelResponse.body).toMatchObject({workflowId: 'travel-guide', status: 'succeeded'});
+    expect(travelRun).toHaveBeenCalledTimes(1);
+    expect(travelRun).toHaveBeenCalledWith(travelRequest, {requestId: expect.any(String)});
+    expect(ugcRun).not.toHaveBeenCalled();
+
+    const ugcRequest = {
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1', 'asset-2', 'asset-3'],
+      campaignTheme: '夏天的风',
+      photoCredits: ['阿朱', '阿紫', ''],
+    };
+    await request(app).post('/api/generate').send(ugcRequest).expect(200);
+    expect(ugcRun).toHaveBeenCalledTimes(1);
+    expect(ugcRun).toHaveBeenCalledWith(ugcRequest, {requestId: expect.any(String)});
+  });
+
+  it('范围过大的目的地返回安全 400', async () => {
+    const app = createApp({providerMode: 'mock', dataDir, registry: createWorkflowRegistry([])});
+
+    const response = await request(app)
+      .post('/api/generate')
+      .send({workflowId: 'travel-guide', destination: '中国'})
+      .expect(400);
+
+    expect(response.body.code).toBe('DESTINATION_TOO_BROAD');
+    expect(response.body.error).toContain('目的地范围过大');
+  });
+
+  it('超过 7 张投稿照片返回安全 400', async () => {
+    const app = createApp({providerMode: 'mock', dataDir, registry: createWorkflowRegistry([])});
+
+    const response = await request(app)
+      .post('/api/generate')
+      .send({
+        workflowId: 'ugc-photo-campaign',
+        photoAssetIds: Array.from({length: 8}, (_, index) => `asset-${index + 1}`),
+      })
+      .expect(400);
+
+    expect(response.body.code).toBe('INVALID_REQUEST');
+    expect(response.body.error).toContain('投稿照片最多 7 张');
   });
 
   it('未知 workflowId 返回安全 400', async () => {

@@ -1,6 +1,8 @@
 import type {
   OriginalIpResult,
   ReferenceAsset,
+  TravelGuideResult,
+  UgcPhotoCampaignResult,
   XhsAtlasResult,
 } from '../../../../shared/types';
 
@@ -38,7 +40,32 @@ export type XhsAtlasHistoryRecord={
   pageBlobs:StoredPageBlob[];
 };
 
-export type HistoryRecord=OriginalIpHistoryRecord|XhsAtlasHistoryRecord;
+/** 手绘攻略历史：目的地一句话输入，无参考图；完整行程在 result 内。 */
+export type TravelGuideHistoryRecord={
+  id:string;
+  createdAt:string;
+  workflowId:'travel-guide';
+  userPrompt:string;
+  result:TravelGuideResult;
+  pageBlobs:StoredPageBlob[];
+};
+
+/** 游客返图历史：活动主题 + 1～7 张投稿照片 Blob；情绪文案在 result 内。 */
+export type UgcPhotoCampaignHistoryRecord={
+  id:string;
+  createdAt:string;
+  workflowId:'ugc-photo-campaign';
+  userPrompt:string;
+  photoFiles:StoredReferenceFile[];
+  result:UgcPhotoCampaignResult;
+  pageBlobs:StoredPageBlob[];
+};
+
+export type HistoryRecord=
+  |OriginalIpHistoryRecord
+  |XhsAtlasHistoryRecord
+  |TravelGuideHistoryRecord
+  |UgcPhotoCampaignHistoryRecord;
 
 export class HistorySaveError extends Error{
   override readonly name='HistorySaveError';
@@ -72,9 +99,15 @@ export function buildRegenerationState(record:HistoryRecord):RegenerationState{
       }],
     };
   }
+  if(record.workflowId==='travel-guide'){
+    return {initialPrompt:record.userPrompt,restoredFiles:[]};
+  }
+  const files=record.workflowId==='ugc-photo-campaign'
+    ?record.photoFiles
+    :record.referenceFiles;
   return {
     initialPrompt:record.userPrompt,
-    restoredFiles:record.referenceFiles.map(file=>({
+    restoredFiles:files.map(file=>({
       name:file.asset.originalName,
       mediaType:file.asset.mediaType,
       blob:file.blob,

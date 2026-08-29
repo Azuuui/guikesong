@@ -1,13 +1,15 @@
 import type {WorkflowId} from '../../../shared/workflows';
 import ipPreviewUrl from '../assets/motion/particle-reveal/reveal-08.png';
 import atlasPreviewUrl from '../assets/motion/particle-reveal/reveal-02.png';
+import travelGuidePreviewUrl from '../assets/motion/particle-reveal/reveal-05.png';
+import ugcPreviewUrl from '../assets/motion/particle-reveal/reveal-09.png';
 
 export type TemplateConfig = {
   id: WorkflowId;
   name: string;
   description: string;
   /** 视觉变体标识；用于模板色彩和图片裁切规则。 */
-  previewVariant: 'original-ip' | 'xhs-atlas';
+  previewVariant: 'original-ip' | 'xhs-atlas' | 'travel-guide' | 'ugc-photo-campaign';
   previewImageUrl: string;
   suitableFor: string[];
   inputAdvice: string;
@@ -40,6 +42,30 @@ export const TEMPLATE_CONFIGS: readonly TemplateConfig[] = [
     examplePrompt: '米白陶瓷马克杯，杯身可印 IP 形象，主打文旅伴手礼场景',
     referenceAdvice: '固定使用锁定的 IP 标准图，日常生成只需上传一张清晰的产品图。',
     outputs: '四张 3:4 竖版图（品牌主视觉、识别系统、商品包装、场景应用）、可选 2×2 总览图与发布文案。',
+  },
+  {
+    id: 'travel-guide',
+    name: '目的地手绘攻略',
+    description: '输入“成都”式目的地，自动规划 1～3 天行程，产出封面、每日路线图与交通住宿美食专题页。',
+    previewVariant: 'travel-guide',
+    previewImageUrl: travelGuidePreviewUrl,
+    suitableFor: ['目的地种草攻略', '城市漫游路线', '旅行计划整理'],
+    inputAdvice: '输入一个具体目的地（城市或景点），如“成都”或“杭州西湖”；天数与路线由系统自动规划。',
+    examplePrompt: '成都',
+    referenceAdvice: '无需上传参考图：目的地信息由联网搜索获取，手绘视觉风格全局统一。',
+    outputs: '封面 + 每日路线图 + 交通/住宿/美食专题页（4～7 张）、3 个候选标题、可发布正文与标签、完整行程 JSON。',
+  },
+  {
+    id: 'ugc-photo-campaign',
+    name: '照片心情图集',
+    description: '上传 1～7 张游客返图，一图一海报并提炼整组情绪，配一套可直接发布的心情文案。',
+    previewVariant: 'ugc-photo-campaign',
+    previewImageUrl: ugcPreviewUrl,
+    suitableFor: ['游客返图精选', '景区日常批量出图', '心情随笔笔记'],
+    inputAdvice: '上传 1～7 张照片，顺序即发布顺序；可补充活动主题与逐张投稿昵称。',
+    examplePrompt: '夏天的风',
+    referenceAdvice: '投稿照片即素材本体，最多 7 张；单张失败自动重跑一次，不影响其他照片。',
+    outputs: '一图一海报（3:4 竖版，最多 7 张）、整组情绪关键词、3 个候选标题、心情正文与标签。',
   },
 ];
 

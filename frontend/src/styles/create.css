@@ -354,6 +354,25 @@
   font-size: 12px;
 }
 
+.reference-preview__caption {
+  width: 100%;
+  padding: 6px 10px;
+  color: var(--color-ink-900);
+  font-size: 12px;
+  background: var(--color-surface-000);
+  border: 1px solid var(--color-border-200);
+  border-radius: var(--radius-sm);
+}
+
+.reference-preview__caption:focus {
+  outline: 2px solid rgb(230 0 18 / 60%);
+  outline-offset: 1px;
+}
+
+.reference-preview__caption:disabled {
+  background: var(--color-surface-100);
+}
+
 .reference-preview__remove {
   display: inline-flex;
   width: 44px;

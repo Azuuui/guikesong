@@ -338,6 +338,13 @@
   line-height: 20px;
 }
 
+.result-detail__trip-note {
+  margin: var(--space-1) 0 0;
+  color: var(--color-ink-500);
+  font-size: 13px;
+  line-height: 20px;
+}
+
 .result-detail__list-items {
   display: grid;
   gap: var(--space-2);
