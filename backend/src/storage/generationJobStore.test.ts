@@ -2,7 +2,7 @@ import {mkdir, mkdtemp, readdir, readFile, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
-import type {GenerateRequest} from '../../../shared/workflows';
+import type {GenerateRequest, GenerateResult} from '../../../shared/workflows';
 import {GenerationJobStore} from './generationJobStore';
 
 const REQUEST: GenerateRequest = {
@@ -10,6 +10,15 @@ const REQUEST: GenerateRequest = {
   topic: '贵阳的12种美食',
   referenceAssetIds: [],
 };
+
+/** 最小合法终态结果：共享守卫只校验对象存在且 workflowId 一致。 */
+const RESULT: GenerateResult = {
+  requestId: 'job-1',
+  workflowId: 'xhs-atlas',
+  status: 'succeeded',
+  pages: [],
+  warnings: [],
+} as GenerateResult;
 
 function jobPath(baseDir: string, jobId: string): string {
   return path.join(baseDir, `${jobId}.json`);
@@ -48,7 +57,6 @@ describe('generation job store', () => {
   it('新建 Store 实例后可从磁盘恢复记录', async () => {
     const store = new GenerationJobStore(baseDir, {now: () => new Date('2026-08-30T00:00:00.000Z')});
     await store.create({jobId: 'job-1', request: REQUEST});
-    const result = {requestId: 'job-1', workflowId: 'xhs-atlas', status: 'succeeded', pages: [], warnings: []};
     await store.update('job-1', current => ({
       ...current,
       snapshot: {
@@ -57,7 +65,7 @@ describe('generation job store', () => {
         phase: 'finalizing',
         completedImages: 2,
         totalImages: 2,
-        result,
+        result: RESULT,
       },
     }));
 
@@ -68,7 +76,7 @@ describe('generation job store', () => {
     expect(recovered?.snapshot.status).toBe('succeeded');
     expect(recovered?.snapshot.phase).toBe('finalizing');
     expect(recovered?.snapshot.completedImages).toBe(2);
-    expect(recovered?.snapshot.result).toEqual(result);
+    expect(recovered?.snapshot.result).toEqual(RESULT);
   });
 
   it('写入采用临时文件加原子重命名，目录不留残余 tmp 文件', async () => {
