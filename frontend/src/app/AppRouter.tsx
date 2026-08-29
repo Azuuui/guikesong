@@ -1,6 +1,7 @@
 import {createBrowserRouter, useLocation} from 'react-router-dom';
 import {DashboardPage} from '../pages/DashboardPage';
 import {CreatePage} from '../pages/CreatePage';
+import {ResultPage} from '../pages/ResultPage';
 import {TemplatesPage} from '../pages/TemplatesPage';
 import {AppShell} from './AppShell';
 
@@ -56,7 +57,7 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: ROUTES.result,
-        element: <TemporaryPage title="生成结果" description="查看、复制和下载本次生成内容。" />,
+        element: <ResultPage />,
       },
       {
         path: ROUTES.history,
