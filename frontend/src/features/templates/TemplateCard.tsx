@@ -6,9 +6,10 @@ import type {TemplateConfig} from '../../config/templates';
 type TemplateCardProps = {
   template: TemplateConfig;
   compact?: boolean;
+  headingLevel?: 2 | 3;
 };
 
-export function TemplateCard({template, compact = false}: TemplateCardProps) {
+export function TemplateCard({template, compact = false, headingLevel = 2}: TemplateCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
 
   return (
@@ -36,7 +37,7 @@ export function TemplateCard({template, compact = false}: TemplateCardProps) {
 
       <div className="template-card__content">
         <div className="template-card__heading">
-          <h2>{template.name}</h2>
+          {headingLevel === 3 ? <h3>{template.name}</h3> : <h2>{template.name}</h2>}
           <p>{template.description}</p>
         </div>
 

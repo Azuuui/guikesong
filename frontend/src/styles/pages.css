@@ -241,11 +241,6 @@
   font-size: 15px;
 }
 
-.dashboard-empty__warning {
-  margin-top: var(--space-3);
-  color: var(--color-warning) !important;
-}
-
 .template-gallery {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -306,8 +301,10 @@
   padding: var(--space-6);
 }
 
-.template-card__heading h2 {
+.template-card__heading h2,
+.template-card__heading h3 {
   margin-bottom: var(--space-2);
+  margin-top: 0;
   color: var(--color-ink-900);
   font-size: 20px;
   line-height: 28px;
@@ -398,7 +395,8 @@
   padding: var(--space-3);
 }
 
-.template-card--compact .template-card__heading h2 {
+.template-card--compact .template-card__heading h2,
+.template-card--compact .template-card__heading h3 {
   margin-bottom: var(--space-1);
   font-size: 16px;
   line-height: 24px;

@@ -154,21 +154,24 @@ export function DashboardPage() {
             <div className="section-heading">
               <h2 id="quick-templates-title">模板快捷入口</h2>
             </div>
-            <TemplateGallery compact />
+            <TemplateGallery compact headingLevel={3} />
           </aside>
         </div>
+      ) : state.status === 'error' ? (
+        <section aria-labelledby="recent-tasks-error-title" className="dashboard-empty">
+          <div className="dashboard-empty__copy">
+            <h2 id="recent-tasks-error-title">暂时无法读取最近任务</h2>
+            <p role="status">你仍可以选择模板创建新素材。</p>
+          </div>
+          <TemplateGallery headingLevel={3} />
+        </section>
       ) : (
         <section aria-labelledby="first-creation-title" className="dashboard-empty">
           <div className="dashboard-empty__copy">
             <h2 id="first-creation-title">开始创建第一套文旅素材</h2>
             <p>选择一个模板，输入一句话需求，系统会生成文案、标签和完整图片页面。</p>
-            {state.status === 'error' ? (
-              <p className="dashboard-empty__warning" role="status">
-                最近任务暂时无法读取，你仍可直接创建新素材。
-              </p>
-            ) : null}
           </div>
-          <TemplateGallery />
+          <TemplateGallery headingLevel={3} />
         </section>
       )}
     </section>
