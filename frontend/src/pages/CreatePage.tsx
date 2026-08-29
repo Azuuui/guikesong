@@ -166,7 +166,7 @@ export function CreatePage() {
             onPhaseChange={setPhase}
             saveResult={saveResult}
             template={template}
-            uploadFiles={files => uploadReferenceFiles(files)}
+            uploadFiles={(files, signal) => uploadReferenceFiles(files, signal)}
           />
         </div>
         <TemplateGuide key={template.id} template={template} />

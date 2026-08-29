@@ -27,6 +27,15 @@
   color: var(--color-ink-500);
 }
 
+.page-placeholder .page-placeholder__warning {
+  margin-top: var(--space-5);
+  padding: var(--space-3);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface-000));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 24%, var(--color-surface-000));
+  border-radius: var(--radius-md);
+}
+
 .page-header {
   display: flex;
   align-items: flex-start;

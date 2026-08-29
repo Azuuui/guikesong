@@ -6,6 +6,9 @@ import type {
 import {TEMPLATE_IDS} from '../../../../shared/types';
 
 const NETWORK_ERROR_MESSAGE='网络连接失败，请稍后重试';
+const REQUEST_ABORTED_MESSAGE='请求已中止，请重新操作';
+const REQUEST_TIMEOUT_MESSAGE='请求超时，请稍后重试';
+const REQUEST_TIMEOUT_MS=30_000;
 const SAFE_BUSINESS_ERRORS=new Set([
   '请上传图片',
   '仅支持 JPG、PNG、WebP',
@@ -99,27 +102,52 @@ async function requestJson(
   url:string,
   init:RequestInit,
   fallback:string,
+  externalSignal?:AbortSignal,
 ):Promise<unknown>{
-  let response:Response;
+  const requestController=new AbortController();
+  let timedOut=false;
+  const abortFromCaller=()=>requestController.abort();
+  const timeoutId=window.setTimeout(()=>{
+    timedOut=true;
+    requestController.abort();
+  },REQUEST_TIMEOUT_MS);
+
+  if(externalSignal?.aborted){
+    abortFromCaller();
+  }else{
+    externalSignal?.addEventListener('abort',abortFromCaller,{once:true});
+  }
+
   try{
-    response=await fetch(url,init);
+    const response=await fetch(url,{...init,signal:requestController.signal});
+    const body=await parseJson(response);
+    if(!response.ok){
+      throw new ApiError(response.status,errorMessage(response.status,body,fallback));
+    }
+    if(body===undefined){
+      throw new ApiError(response.status,fallback);
+    }
+    return body;
   }catch(reason:unknown){
-    const error=new ApiError(0,NETWORK_ERROR_MESSAGE);
+    if(reason instanceof ApiError) throw reason;
+    const message=timedOut
+      ?REQUEST_TIMEOUT_MESSAGE
+      :externalSignal?.aborted
+        ?REQUEST_ABORTED_MESSAGE
+        :NETWORK_ERROR_MESSAGE;
+    const error=new ApiError(0,message);
     error.cause=reason;
     throw error;
+  }finally{
+    window.clearTimeout(timeoutId);
+    externalSignal?.removeEventListener('abort',abortFromCaller);
   }
-
-  const body=await parseJson(response);
-  if(!response.ok){
-    throw new ApiError(response.status,errorMessage(response.status,body,fallback));
-  }
-  if(body===undefined){
-    throw new ApiError(response.status,fallback);
-  }
-  return body;
 }
 
-export async function uploadReferenceFiles(files:readonly File[]):Promise<ReferenceAsset[]>{
+export async function uploadReferenceFiles(
+  files:readonly File[],
+  signal?:AbortSignal,
+):Promise<ReferenceAsset[]>{
   if(files.length===0) return [];
 
   const formData=new FormData();
@@ -128,6 +156,7 @@ export async function uploadReferenceFiles(files:readonly File[]):Promise<Refere
     '/api/reference-assets',
     {method:'POST',body:formData},
     '参考图上传失败，请稍后重试',
+    signal,
   );
   if(!isRecord(body)||!Array.isArray(body.assets)||!body.assets.every(isReferenceAsset)){
     throw new ApiError(200,'参考图上传失败，请稍后重试');
@@ -135,7 +164,10 @@ export async function uploadReferenceFiles(files:readonly File[]):Promise<Refere
   return body.assets;
 }
 
-export async function generateMarketingAssets(request:GenerateRequest):Promise<GenerateResponse>{
+export async function generateMarketingAssets(
+  request:GenerateRequest,
+  signal?:AbortSignal,
+):Promise<GenerateResponse>{
   const payload:GenerateRequest={
     templateId:request.templateId,
     userPrompt:request.userPrompt,
@@ -149,6 +181,7 @@ export async function generateMarketingAssets(request:GenerateRequest):Promise<G
       body:JSON.stringify(payload),
     },
     '素材生成失败，请稍后重试',
+    signal,
   );
   if(!isGenerateResponse(body)){
     throw new ApiError(200,'素材生成失败，请稍后重试');

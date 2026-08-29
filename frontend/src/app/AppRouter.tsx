@@ -1,4 +1,4 @@
-import {createBrowserRouter} from 'react-router-dom';
+import {createBrowserRouter, useLocation} from 'react-router-dom';
 import {DashboardPage} from '../pages/DashboardPage';
 import {CreatePage} from '../pages/CreatePage';
 import {TemplatesPage} from '../pages/TemplatesPage';
@@ -20,12 +20,20 @@ type TemporaryPageProps = {
 
 function TemporaryPage({title, description}: TemporaryPageProps) {
   const headingId = `page-${title}`;
+  const location = useLocation();
+  const state = location.state as {historySaveWarning?: unknown} | null;
+  const historySaveWarning = title === '生成结果' && typeof state?.historySaveWarning === 'string'
+    ? state.historySaveWarning
+    : undefined;
 
   return (
     <section aria-labelledby={headingId} className="page-placeholder">
       <p className="page-placeholder__eyebrow">文旅营销素材生成</p>
       <h1 id={headingId}>{title}</h1>
       <p>{description}</p>
+      {historySaveWarning ? (
+        <p className="page-placeholder__warning" role="alert">{historySaveWarning}</p>
+      ) : null}
     </section>
   );
 }

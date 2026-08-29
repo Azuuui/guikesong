@@ -24,8 +24,8 @@ export type CreateDraft = {
 export type CreateFormProps = {
   template: TemplateConfig;
   initialPrompt?: string;
-  uploadFiles: (files: File[]) => Promise<ReferenceAsset[]>;
-  generate: (request: GenerateRequest) => Promise<GenerateResponse>;
+  uploadFiles: (files: File[], signal?: AbortSignal) => Promise<ReferenceAsset[]>;
+  generate: (request: GenerateRequest, signal?: AbortSignal) => Promise<GenerateResponse>;
   saveResult: (
     response: GenerateResponse,
     draft: CreateDraft,
@@ -85,9 +85,15 @@ export function CreateForm({
   const [uploadStatus, setUploadStatus] = useState<ReferenceUploadStatus>('pending');
   const mountedRef = useRef(true);
   const submittingRef = useRef(false);
+  const submissionControllerRef = useRef<AbortController | undefined>(undefined);
 
-  useEffect(() => () => {
-    mountedRef.current = false;
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      submissionControllerRef.current?.abort();
+      submissionControllerRef.current = undefined;
+    };
   }, []);
 
   function setPhase(nextPhase: CreatePhase) {
@@ -124,6 +130,8 @@ export function CreateForm({
     }
 
     setFieldError(undefined);
+    const submissionController = new AbortController();
+    submissionControllerRef.current = submissionController;
     let assets: ReferenceAsset[] = [];
     let operationStage: 'uploading' | 'generating' = 'generating';
     try {
@@ -131,7 +139,7 @@ export function CreateForm({
         operationStage = 'uploading';
         setUploadStatus('uploading');
         setPhase('uploading');
-        assets = await uploadFiles(normalizedDraft.files);
+        assets = await uploadFiles(normalizedDraft.files, submissionController.signal);
         if (!mountedRef.current) return;
         if (assets.length !== normalizedDraft.files.length) {
           throw new Error('参考图上传结果数量不一致');
@@ -141,11 +149,14 @@ export function CreateForm({
 
       operationStage = 'generating';
       setPhase('generating');
-      const response = await generate({
-        templateId: normalizedDraft.templateId,
-        userPrompt: normalizedDraft.userPrompt,
-        referenceAssetIds: assets.map(asset => asset.assetId),
-      });
+      const response = await generate(
+        {
+          templateId: normalizedDraft.templateId,
+          userPrompt: normalizedDraft.userPrompt,
+          referenceAssetIds: assets.map(asset => asset.assetId),
+        },
+        submissionController.signal,
+      );
       if (!mountedRef.current) return;
 
       const createdAt = new Date().toISOString();
@@ -165,6 +176,10 @@ export function CreateForm({
       setOperationError(safeFailureMessage(operationStage));
       submittingRef.current = false;
       setPhase('error');
+    } finally {
+      if (submissionControllerRef.current === submissionController) {
+        submissionControllerRef.current = undefined;
+      }
     }
   }
 
@@ -190,7 +205,7 @@ export function CreateForm({
           aria-invalid={Boolean(fieldError)}
           disabled={isBusy}
           id="create-user-prompt"
-          maxLength={520}
+          maxLength={500}
           onChange={event => {
             const userPrompt = event.target.value;
             setDraft(current => ({...current, userPrompt}));
