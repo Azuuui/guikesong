@@ -2,7 +2,6 @@ import {fireEvent,render,screen} from '@testing-library/react';
 import {describe,expect,it,vi} from 'vitest';
 import type {GenerationJobPhase,GenerationJobSnapshot} from '../../../../shared/generationJobs';
 import {makeXhsAtlasResult} from '../../test/fixtures';
-import type {GenerationJobConnectionState} from '../generation/GenerationJobProvider';
 import {HomeGenerationStatus,type HomeGenerationStatusProps} from './HomeGenerationStatus';
 
 const NOW='2026-08-30T00:00:00.000Z';
