@@ -1,4 +1,6 @@
 import {createBrowserRouter} from 'react-router-dom';
+import {DashboardPage} from '../pages/DashboardPage';
+import {TemplatesPage} from '../pages/TemplatesPage';
 import {AppShell} from './AppShell';
 
 export const ROUTES = {
@@ -33,11 +35,11 @@ export const appRouter = createBrowserRouter([
     children: [
       {
         path: ROUTES.dashboard,
-        element: <TemporaryPage title="工作台" description="开始创建，并继续最近的素材任务。" />,
+        element: <DashboardPage />,
       },
       {
         path: ROUTES.templates,
-        element: <TemporaryPage title="模板中心" description="浏览四类文旅营销素材模板。" />,
+        element: <TemplatesPage />,
       },
       {
         path: ROUTES.create,
