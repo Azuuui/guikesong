@@ -5,9 +5,12 @@ import type {MockFixtures} from './providers/contracts';
 import {createProviders} from './providers/providerFactory';
 import {registerGeneratedAssetRoutes} from './routes/generatedAssets';
 import {registerGenerateRoute} from './routes/generate';
+import {registerGenerationJobRoutes} from './routes/generationJobs';
 import {registerIpProfileRoutes} from './routes/ipProfiles';
 import {registerReferenceAssetRoutes} from './routes/referenceAssets';
+import {GenerationJobRunner} from './services/generationJobRunner';
 import {AssetStore} from './storage/assetStore';
+import {GenerationJobStore} from './storage/generationJobStore';
 import {IpProfileStore} from './storage/ipProfileStore';
 import {ReferenceAssetStore} from './storage/referenceAssetStore';
 import {loadPublicConfig} from './config/env';
@@ -107,9 +110,13 @@ export function createApp(dependencies: AppDependencies = {}): Express {
     res.json({ok: true, mode: providerMode});
   });
 
+  const generationJobStore = new GenerationJobStore(path.join(dataDir, 'generation-jobs'));
+  const generationJobRunner = new GenerationJobRunner(generationJobStore, registry);
+
   registerReferenceAssetRoutes(app, {store: referenceAssetStore});
   registerIpProfileRoutes(app, {store: ipProfileStore, referenceAssets: referenceAssetStore});
   registerGenerateRoute(app, {registry});
+  registerGenerationJobRoutes(app, {store: generationJobStore, runner: generationJobRunner});
   registerGeneratedAssetRoutes(app, {store: generatedAssetStore});
 
   app.use((_req: Request, res: Response) => {
