@@ -31,8 +31,7 @@ export function DashboardPage(){
       <div className="dashboard-page__veil" aria-hidden="true" />
       <div className="dashboard-page__content">
         <header className="dashboard-page__hero">
-          <p className="dashboard-page__eyebrow">QIANSCAPE AI / TRAVEL CREATIVE STUDIO</p>
-          <h1 id="dashboard-title">从一句话开始，<br />生成一套文旅表达。</h1>
+          <h1 id="dashboard-title">你给一个选题<br />它还你一座城的流量</h1>
         </header>
 
         <div id="composer">
@@ -46,6 +45,7 @@ export function DashboardPage(){
             onSubmit={()=>void generation.submit()}
             prompt={generation.prompt}
           />
+          <p className="dashboard-page__composer-note">一次灵感输入，全套图文输出，文旅爆款即刻启程。</p>
         </div>
 
         <p aria-live="polite" className="dashboard-page__selection-status">

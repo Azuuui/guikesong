@@ -48,7 +48,7 @@ describe('AppShell',()=>{
   });
 
   it.each([
-    ['/','从一句话开始，生成一套文旅表达。'],
+    ['/','你给一个选题它还你一座城的流量'],
     ['/templates','全部模板'],
     ['/templates/xhs-atlas','小红书图鉴创作'],
     ['/templates/original-ip/create','原创 IP 商品化'],
