@@ -27,7 +27,6 @@ function canHandleArrowKey(target: EventTarget | null): boolean {
   return tagName !== 'INPUT'
     && tagName !== 'TEXTAREA'
     && tagName !== 'SELECT'
-    && tagName !== 'BUTTON'
     && !target.isContentEditable;
 }
 
@@ -70,6 +69,7 @@ export function ImagePreviewDialog({
     if (!isOpen || previewPages.length < 2) return;
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
       if (!canHandleArrowKey(event.target)) return;
       if (event.key === 'ArrowLeft' && selectedIndex > 0) {
         event.preventDefault();
