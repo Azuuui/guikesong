@@ -2,6 +2,7 @@
 import {randomUUID} from 'node:crypto';
 import sharp from 'sharp';
 import {describe, expect, it, vi} from 'vitest';
+import type {GenerationJobProgress} from '../../../../shared/generationJobs';
 import type {TravelGuideRequest} from '../../../../shared/workflows';
 import {ApiError} from '../../http/apiError';
 import type {
@@ -521,6 +522,34 @@ describe('travel-guide workflow', () => {
     }
     expect(harness.savedImages).toHaveLength(6);
     expect(result.trip.dayPlans).toHaveLength(2);
+  });
+
+  it('上报公共阶段与六页计数，顺序为 preparing 到 finalizing', async () => {
+    const harness = createHarness();
+    const progress: GenerationJobProgress[] = [];
+    const result = await harness.workflow.run(REQUEST, {
+      ...CONTEXT,
+      reportProgress: async event => {
+        progress.push(event);
+      },
+    });
+
+    expect(progress[0]).toEqual({phase: 'preparing'});
+    expect(progress).toContainEqual({phase: 'content'});
+    expect(progress).toContainEqual({phase: 'copy'});
+    expect(progress).toContainEqual({phase: 'images', completedImages: 0, totalImages: 6});
+    expect(progress).toContainEqual({phase: 'images', completedImages: 6, totalImages: 6});
+    expect(progress.at(-1)).toEqual({phase: 'finalizing', completedImages: 6, totalImages: 6});
+
+    const phaseOrder = progress.map(event => event.phase);
+    expect(phaseOrder.indexOf('preparing')).toBeLessThan(phaseOrder.indexOf('content'));
+    expect(phaseOrder.indexOf('content')).toBeLessThan(phaseOrder.indexOf('copy'));
+    expect(phaseOrder.indexOf('copy')).toBeLessThan(phaseOrder.indexOf('images'));
+    const imageEvents = progress.filter(event => event.phase === 'images');
+    expect(imageEvents.map(event => event.completedImages).sort((a, b) => a! - b!)).toEqual(
+      [0, 1, 2, 3, 4, 5, 6],
+    );
+    expect(result.status).toBe('succeeded');
   });
 
   it('检索失败时降级为常识性建议并打 warning，不阻塞生成', async () => {

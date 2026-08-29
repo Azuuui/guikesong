@@ -2,6 +2,7 @@
 import {randomUUID} from 'node:crypto';
 import sharp from 'sharp';
 import {describe, expect, it, vi} from 'vitest';
+import type {GenerationJobProgress} from '../../../../shared/generationJobs';
 import type {IpProfile, OriginalIpRequest} from '../../../../shared/workflows';
 import {ApiError} from '../../http/apiError';
 import type {
@@ -439,6 +440,34 @@ describe('original-ip workflow', () => {
     expect(harness.deps.createOverviewCollage).toHaveBeenCalledOnce();
     expect(harness.savedImages).toHaveLength(5);
     expect(harness.savedImages[4]!.bytes.toString()).toBe('collage:4');
+  });
+
+  it('上报公共阶段与四图计数，总览不计入生图总数', async () => {
+    const harness = createHarness();
+    const progress: GenerationJobProgress[] = [];
+    const result = await harness.workflow.run(REQUEST, {
+      ...CONTEXT,
+      reportProgress: async event => {
+        progress.push(event);
+      },
+    });
+
+    expect(progress[0]).toEqual({phase: 'preparing'});
+    expect(progress).toContainEqual({phase: 'content'});
+    expect(progress).toContainEqual({phase: 'copy'});
+    expect(progress).toContainEqual({phase: 'images', completedImages: 0, totalImages: 4});
+    expect(progress.at(-1)).toEqual({phase: 'finalizing', completedImages: 4, totalImages: 4});
+
+    const phaseOrder = progress.map(event => event.phase);
+    expect(phaseOrder.indexOf('preparing')).toBeLessThan(phaseOrder.indexOf('content'));
+    expect(phaseOrder.indexOf('content')).toBeLessThan(phaseOrder.indexOf('copy'));
+    expect(phaseOrder.indexOf('copy')).toBeLessThan(phaseOrder.indexOf('images'));
+    // C-1 → C-2/3/4：计数只增不减且最终等于 4。
+    const imageEvents = progress.filter(event => event.phase === 'images');
+    const counts = imageEvents.map(event => event.completedImages);
+    expect(counts[0]).toBe(0);
+    expect(counts.at(-1)).toBe(4);
+    expect(result.status).toBe('succeeded');
   });
 
   it('IP 档案未锁定时拒绝且不触发任何模型调用', async () => {

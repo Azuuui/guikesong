@@ -8,7 +8,7 @@ import type {
 import {ApiError} from '../../http/apiError';
 import type {GeneratedImage, ProviderBundle, WebSearchResultItem} from '../../providers/contracts';
 import type {StoredImageAsset} from '../../storage/assetStore';
-import type {Workflow} from '../contracts';
+import {reportWorkflowProgress, type Workflow} from '../contracts';
 import {
   renderContentMasterPrompt,
   renderCopyPrompt,
@@ -99,12 +99,14 @@ export function createTravelGuideWorkflow(
   return {
     id: 'travel-guide',
     async run(input, context): Promise<TravelGuideResult> {
+      await reportWorkflowProgress(context, {phase: 'preparing'});
       const destination = input.destination.trim();
 
       // 1. 联网检索（增强能力，失败降级为空结果）
       const search = await searchDestinationContext(deps.providers, destination);
 
       // 2. 提示词一：地名 → 完整行程 JSON
+      await reportWorkflowProgress(context, {phase: 'content'});
       const masterPrompt = await renderContentMasterPrompt(
         destination,
         renderSearchContext(search.results),
@@ -126,6 +128,7 @@ export function createTravelGuideWorkflow(
       ]);
 
       // 4. 文案与全部页面并行执行；全部落定后再判定结果
+      await reportWorkflowProgress(context, {phase: 'copy'});
       const copyTask: Promise<TravelGuideCopy> = generateValidatedOutput(
         () =>
           deps.providers.text.generateJson({
@@ -135,8 +138,20 @@ export function createTravelGuideWorkflow(
         parseTravelGuideCopy,
         'COPY_INVALID',
       );
+      const totalImages = imagePlans.length;
+      let completedImages = 0;
+      await reportWorkflowProgress(context, {phase: 'images', completedImages: 0, totalImages});
       const imageTasks: Array<Promise<GeneratedImage>> = imagePlans.map(plan =>
-        deps.providers.image.generate({prompt: plan.prompt, size: TRAVEL_GUIDE_IMAGE_SIZE}),
+        deps.providers.image
+          .generate({prompt: plan.prompt, size: TRAVEL_GUIDE_IMAGE_SIZE})
+          .finally(async () => {
+            completedImages += 1;
+            await reportWorkflowProgress(context, {
+              phase: 'images',
+              completedImages,
+              totalImages,
+            }).catch(() => undefined);
+          }),
       );
 
       const [copyOutcome, imageOutcomes] = await Promise.all([
@@ -148,6 +163,11 @@ export function createTravelGuideWorkflow(
         throw toSafeError(copyOutcome.reason, '文案生成失败，请稍后重试', 'COPY_FAILED');
       }
       const copy = copyOutcome.value;
+      await reportWorkflowProgress(context, {
+        phase: 'finalizing',
+        completedImages: totalImages,
+        totalImages,
+      });
 
       // 5. 组装结果：封面在前，路线页按天，随后交通/住宿/美食；个别页面失败标记为 partial
       const pages: TravelGuidePage[] = [];

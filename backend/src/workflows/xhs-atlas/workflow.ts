@@ -8,7 +8,7 @@ import type {
 import {ApiError} from '../../http/apiError';
 import type {GeneratedImage, ProviderBundle} from '../../providers/contracts';
 import type {StoredImageAsset} from '../../storage/assetStore';
-import type {Workflow} from '../contracts';
+import {reportWorkflowProgress, type Workflow} from '../contracts';
 import {normalizeTopic} from './normalizeTopic';
 import {computeCoverLayout, paginateItems} from './pagination';
 import {
@@ -68,6 +68,7 @@ export function createXhsAtlasWorkflow(
     id: 'xhs-atlas',
     async run(input, context): Promise<XhsAtlasResult> {
       // 1. 规范化输入：数量边界钳制
+      await reportWorkflowProgress(context, {phase: 'preparing'});
       const normalized = normalizeTopic(input.topic);
 
       // 2. 加载参考图（仅进入生图调用，不参与清单与文案事实生成）
@@ -76,6 +77,7 @@ export function createXhsAtlasWorkflow(
       );
 
       // 3. 提示词一：选题 → 清单 JSON
+      await reportWorkflowProgress(context, {phase: 'content'});
       const listPromptTemplate = await loadPromptTemplate('list-json.md');
       const list = await generateValidatedOutput(
         () =>
@@ -113,6 +115,7 @@ export function createXhsAtlasWorkflow(
           : deps.providers.image.generate({prompt, size: XHS_ATLAS_IMAGE_SIZE});
 
       // 文案、封面与全部正文页并行执行；全部落定后再判定结果
+      await reportWorkflowProgress(context, {phase: 'copy'});
       const copyTask: Promise<XhsAtlasCopy> = generateValidatedOutput(
         () =>
           deps.providers.text.generateJson({
@@ -123,8 +126,18 @@ export function createXhsAtlasWorkflow(
         'COPY_INVALID',
       );
       const imagePrompts = [coverPrompt, ...contentPrompts];
+      const totalImages = imagePrompts.length;
+      let completedImages = 0;
+      await reportWorkflowProgress(context, {phase: 'images', completedImages: 0, totalImages});
       const imageTasks: Array<Promise<GeneratedImage>> = imagePrompts.map(prompt =>
-        generateImage(prompt),
+        generateImage(prompt).finally(async () => {
+          completedImages += 1;
+          await reportWorkflowProgress(context, {
+            phase: 'images',
+            completedImages,
+            totalImages,
+          }).catch(() => undefined);
+        }),
       );
 
       const [copyOutcome, imageOutcomes] = await Promise.all([
@@ -136,6 +149,11 @@ export function createXhsAtlasWorkflow(
         throw toSafeError(copyOutcome.reason, '文案生成失败，请稍后重试', 'COPY_FAILED');
       }
       const copy = copyOutcome.value;
+      await reportWorkflowProgress(context, {
+        phase: 'finalizing',
+        completedImages: totalImages,
+        totalImages,
+      });
 
       // 6. 组装结果：封面排第一，个别页面失败标记为 partial
       const alts: string[] = [

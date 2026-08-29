@@ -4,7 +4,7 @@ import {ApiError} from '../../http/apiError';
 import type {GeneratedImage, ProviderBundle} from '../../providers/contracts';
 import {createOverviewCollage} from '../../services/collage';
 import type {StoredImageAsset} from '../../storage/assetStore';
-import type {Workflow} from '../contracts';
+import {reportWorkflowProgress, type Workflow} from '../contracts';
 import {loadPromptTemplate, renderOriginalIpPrompts} from './promptRenderer';
 import {parseBoardPlan, parseBrandDna, parseOriginalIpCopy} from './schemas';
 
@@ -82,6 +82,7 @@ export function createOriginalIpWorkflow(
   return {
     id: 'original-ip',
     async run(input, context): Promise<OriginalIpResult> {
+      await reportWorkflowProgress(context, {phase: 'preparing'});
       const profile = await deps.loadIpProfile();
       if (!profile) {
         throw new ApiError(404, '尚未创建 IP 档案', 'IP_PROFILE_MISSING');
@@ -99,6 +100,7 @@ export function createOriginalIpWorkflow(
       ]);
 
       // 提示词 A：产品图 + 产品描述 → brand_dna.json
+      await reportWorkflowProgress(context, {phase: 'content'});
       const brandDnaPrompt = `${await loadPromptTemplate('brand-dna.md')}\n\n【用户产品描述】\n${input.productDescription}`;
       const dna = await generateValidatedOutput(
         () =>
@@ -112,6 +114,7 @@ export function createOriginalIpWorkflow(
       );
 
       // 提示词 B 与发布文案并行
+      await reportWorkflowProgress(context, {phase: 'copy'});
       const [boardPlanPromptTemplate, copyPromptTemplate] = await Promise.all([
         loadPromptTemplate('board-plan.md'),
         loadPromptTemplate('copy.md'),
@@ -147,6 +150,9 @@ export function createOriginalIpWorkflow(
       const prompts = await renderOriginalIpPrompts(dna, plan, profile.description);
 
       // C-1 是地基：失败即整次失败，不发起 C-2～C-4
+      const totalImages = PAGE_ROLES.length;
+      let completedImages = 0;
+      await reportWorkflowProgress(context, {phase: 'images', completedImages: 0, totalImages});
       let coverImage: GeneratedImage;
       try {
         coverImage = await deps.providers.image.edit({
@@ -157,18 +163,38 @@ export function createOriginalIpWorkflow(
       } catch (error) {
         throw toSafeError(error, '首图生成失败，请稍后重试', 'COVER_IMAGE_FAILED');
       }
+      completedImages += 1;
+      await reportWorkflowProgress(context, {
+        phase: 'images',
+        completedImages,
+        totalImages,
+      }).catch(() => undefined);
 
       // C-2/3/4 依赖 C-1 成图，并行执行
       const coverDataUrl = toDataUrl(coverImage);
       const restResults = await Promise.allSettled(
         prompts.slice(1).map(prompt =>
-          deps.providers.image.edit({
-            prompt,
-            size: ORIGINAL_IP_IMAGE_SIZE,
-            imageDataUrls: [ipImage, productImage, coverDataUrl],
-          }),
+          deps.providers.image
+            .edit({
+              prompt,
+              size: ORIGINAL_IP_IMAGE_SIZE,
+              imageDataUrls: [ipImage, productImage, coverDataUrl],
+            })
+            .finally(async () => {
+              completedImages += 1;
+              await reportWorkflowProgress(context, {
+                phase: 'images',
+                completedImages,
+                totalImages,
+              }).catch(() => undefined);
+            }),
         ),
       );
+      await reportWorkflowProgress(context, {
+        phase: 'finalizing',
+        completedImages: totalImages,
+        totalImages,
+      }).catch(() => undefined);
 
       const images: Array<GeneratedImage | undefined> = [coverImage];
       const pageErrors: Array<string | undefined> = [undefined];

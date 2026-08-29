@@ -8,7 +8,7 @@ import type {
 import {ApiError} from '../../http/apiError';
 import type {GeneratedImage, ImageProvider, ProviderBundle} from '../../providers/contracts';
 import type {StoredImageAsset} from '../../storage/assetStore';
-import type {Workflow} from '../contracts';
+import {reportWorkflowProgress, type Workflow} from '../contracts';
 import {loadPosterPrompt, renderCopyPrompt, renderPhotoDescriptionsPrompt} from './promptRenderer';
 import {parsePhotoDescriptions, parseUgcPhotoCampaignCopy} from './schemas';
 
@@ -84,12 +84,14 @@ export function createUgcPhotoCampaignWorkflow(
   return {
     id: 'ugc-photo-campaign',
     async run(input, context): Promise<UgcPhotoCampaignResult> {
+      await reportWorkflowProgress(context, {phase: 'preparing'});
       // 1. 加载全部投稿照片（上传顺序即发布顺序）
       const photoDataUrls = await Promise.all(
         input.photoAssetIds.map(assetId => deps.loadPhotoImage(assetId)),
       );
 
       // 2. 视觉分析：整组照片 → 每张一句话画面描述（校验+重试一次）
+      await reportWorkflowProgress(context, {phase: 'content'});
       const descriptionsPrompt = await renderPhotoDescriptionsPrompt(photoDataUrls.length);
       const descriptions = await generateValidatedOutput(
         () =>
@@ -103,6 +105,7 @@ export function createUgcPhotoCampaignWorkflow(
       );
 
       // 3. 文案与逐张海报并行；全部落定后再判定结果
+      await reportWorkflowProgress(context, {phase: 'copy'});
       const [copyPrompt, posterPrompt] = await Promise.all([
         renderCopyPrompt(descriptions),
         loadPosterPrompt(),
@@ -118,8 +121,20 @@ export function createUgcPhotoCampaignWorkflow(
           parseUgcPhotoCampaignCopy,
           'COPY_INVALID',
         );
+      const totalImages = photoDataUrls.length;
+      let completedImages = 0;
+      await reportWorkflowProgress(context, {phase: 'images', completedImages: 0, totalImages});
       const posterTasks: Array<Promise<GeneratedImage>> = photoDataUrls.map(photoDataUrl =>
-        generatePosterWithRetry(deps.providers.image, posterPrompt, photoDataUrl),
+        generatePosterWithRetry(deps.providers.image, posterPrompt, photoDataUrl).finally(
+          async () => {
+            completedImages += 1;
+            await reportWorkflowProgress(context, {
+              phase: 'images',
+              completedImages,
+              totalImages,
+            }).catch(() => undefined);
+          },
+        ),
       );
 
       const [copyOutcome, posterOutcomes] = await Promise.all([
@@ -131,6 +146,11 @@ export function createUgcPhotoCampaignWorkflow(
         throw toSafeError(copyOutcome.reason, '文案生成失败，请稍后重试', 'COPY_FAILED');
       }
       const {mood, copy} = copyOutcome.value;
+      await reportWorkflowProgress(context, {
+        phase: 'finalizing',
+        completedImages: totalImages,
+        totalImages,
+      });
 
       // 4. 组装结果：页面按上传顺序；投稿昵称按位对齐，空字符串视为未填写
       const pages: UgcPhotoCampaignPage[] = [];

@@ -2,6 +2,7 @@
 import {randomUUID} from 'node:crypto';
 import sharp from 'sharp';
 import {describe, expect, it, vi} from 'vitest';
+import type {GenerationJobProgress} from '../../../../shared/generationJobs';
 import type {XhsAtlasListItem, XhsAtlasRequest} from '../../../../shared/workflows';
 import {ApiError} from '../../http/apiError';
 import type {
@@ -511,6 +512,50 @@ describe('xhs-atlas workflow', () => {
       expect(page.filename).toMatch(/^[\w-]+\.png$/);
     }
     expect(harness.savedImages).toHaveLength(3);
+  });
+
+  it('上报公共阶段与图片计数，顺序为 preparing 到 finalizing', async () => {
+    const harness = createHarness();
+    const progress: GenerationJobProgress[] = [];
+    const result = await harness.workflow.run(REQUEST, {
+      ...CONTEXT,
+      reportProgress: async event => {
+        progress.push(event);
+      },
+    });
+
+    expect(progress[0]).toEqual({phase: 'preparing'});
+    expect(progress).toContainEqual({phase: 'content'});
+    expect(progress).toContainEqual({phase: 'copy'});
+    expect(progress).toContainEqual({phase: 'images', completedImages: 0, totalImages: 3});
+    expect(progress).toContainEqual({phase: 'images', completedImages: 3, totalImages: 3});
+    expect(progress.at(-1)).toEqual({phase: 'finalizing', completedImages: 3, totalImages: 3});
+
+    const phaseOrder = progress.map(event => event.phase);
+    expect(phaseOrder.indexOf('preparing')).toBeLessThan(phaseOrder.indexOf('content'));
+    expect(phaseOrder.indexOf('content')).toBeLessThan(phaseOrder.indexOf('copy'));
+    expect(phaseOrder.indexOf('copy')).toBeLessThan(phaseOrder.indexOf('images'));
+    // 每张图片只推进一次计数，不会超过总数。
+    const imageEvents = progress.filter(event => event.phase === 'images');
+    const counts = imageEvents.map(event => event.completedImages).sort((a, b) => a! - b!);
+    expect(counts).toEqual([0, 1, 2, 3]);
+    expect(result.status).toBe('succeeded');
+  });
+
+  it('失败图片也计入已处理，终态计数完整', async () => {
+    const harness = createHarness({failImages: ['content-01-06']});
+    const progress: GenerationJobProgress[] = [];
+    const result = await harness.workflow.run(REQUEST, {
+      ...CONTEXT,
+      reportProgress: async event => {
+        progress.push(event);
+      },
+    });
+
+    expect(result.status).toBe('partial');
+    expect(progress.at(-1)).toEqual({phase: 'finalizing', completedImages: 3, totalImages: 3});
+    const imageEvents = progress.filter(event => event.phase === 'images');
+    expect(imageEvents.map(event => event.completedImages)).toContain(3);
   });
 
   it('参考图只进入生图调用，按语义顺序传递', async () => {
