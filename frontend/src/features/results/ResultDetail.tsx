@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import {useEffect, useMemo, useRef, useState, type MouseEvent} from 'react';
 import type {GenerateResponse, GeneratedPage} from '../../../../shared/types';
+import {Link} from 'react-router-dom';
 import {Button} from '../../components/Button';
 import {StatusBadge} from '../../components/StatusBadge';
 import {TEMPLATE_CONFIGS_BY_ID} from '../../config/templates';
@@ -165,10 +166,10 @@ export function ResultDetail({
             <ArrowClockwise aria-hidden="true" size={18} weight="bold" />
             重新生成
           </Button>
-          <a className="button button--ghost" href="/">
+          <Link className="button button--ghost" to="/">
             <ArrowLeft aria-hidden="true" size={18} weight="bold" />
             返回工作台
-          </a>
+          </Link>
           <p className="result-detail__regenerate-help">重新生成会创建新的结果，不会覆盖已有历史。</p>
         </div>
       </header>
@@ -190,7 +191,7 @@ export function ResultDetail({
             return (
               <button
                 aria-label={`${PAGE_TYPE_LABELS[page.pageType]} ${index + 1}${page.status === 'failed' ? '，未生成成功' : ''}`}
-                aria-selected={selected}
+                aria-pressed={selected}
                 className={`result-thumbnail${selected ? ' result-thumbnail--selected' : ''}${page.status === 'failed' ? ' result-thumbnail--failed' : ''}`}
                 key={page.id}
                 onClick={() => setSelectedPageId(page.id)}
@@ -272,7 +273,6 @@ export function ResultDetail({
       <ImagePreviewDialog
         isOpen={previewOpen}
         onClose={() => setPreviewOpen(false)}
-        onDownload={page => void handleDownloadPage(page)}
         onImageUnavailable={pageId => setUnavailableImageIds(current => new Set(current).add(pageId))}
         onSelectPage={setSelectedPageId}
         pages={response.pages}

@@ -14,14 +14,20 @@ type ResultLocationState = {
 };
 
 type ResultPageState =
-  | {status: 'loading'}
-  | {status: 'ready'; response: GenerateResponse; userPrompt: string; createdAt: string; historySaveWarning?: string}
-  | {status: 'missing'}
-  | {status: 'error'};
+  | {requestId: string; status: 'loading'}
+  | {requestId: string; status: 'ready'; response: GenerateResponse; userPrompt: string; createdAt: string; historySaveWarning?: string}
+  | {requestId: string; status: 'missing'}
+  | {requestId: string; status: 'error'};
 
-function currentResult(state: ResultLocationState | null): ResultPageState | undefined {
-  if (!state?.response || typeof state.userPrompt !== 'string' || typeof state.createdAt !== 'string') return undefined;
+function currentResult(state: ResultLocationState | null, requestId: string): ResultPageState | undefined {
+  if (
+    !state?.response
+    || state.response.requestId !== requestId
+    || typeof state.userPrompt !== 'string'
+    || typeof state.createdAt !== 'string'
+  ) return undefined;
   return {
+    requestId,
     status: 'ready',
     response: state.response,
     userPrompt: state.userPrompt,
@@ -35,10 +41,12 @@ export function ResultPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const locationState = location.state as ResultLocationState | null;
-  const [state, setState] = useState<ResultPageState>(() => currentResult(locationState) ?? {status: 'loading'});
+  const [state, setState] = useState<ResultPageState>(
+    () => currentResult(locationState, requestId) ?? {requestId, status: 'loading'},
+  );
 
   useEffect(() => {
-    const current = currentResult(locationState);
+    const current = currentResult(locationState, requestId);
     if (current) {
       setState(current);
       return;
@@ -46,11 +54,11 @@ export function ResultPage() {
 
     let active = true;
     let revoke: (() => void) | undefined;
-    setState({status: 'loading'});
+    setState({requestId, status: 'loading'});
 
     historyRepository.get(requestId).then(record => {
       if (!record) {
-        if (active) setState({status: 'missing'});
+        if (active) setState({requestId, status: 'missing'});
         return;
       }
       const materialized = materializeHistoryResult(record);
@@ -60,13 +68,14 @@ export function ResultPage() {
         return;
       }
       setState({
+        requestId,
         status: 'ready',
         response: materialized.response,
         userPrompt: record.userPrompt,
         createdAt: record.createdAt,
       });
     }).catch(() => {
-      if (active) setState({status: 'error'});
+      if (active) setState({requestId, status: 'error'});
     });
 
     return () => {
@@ -75,7 +84,7 @@ export function ResultPage() {
     };
   }, [location.key, locationState, requestId]);
 
-  if (state.status === 'loading') {
+  if (state.requestId !== requestId || state.status === 'loading') {
     return <section aria-live="polite" className="result-page__loading">正在读取生成结果…</section>;
   }
   if (state.status === 'missing') return <NotFoundPage message="这条生成结果已经不在当前浏览器中。" />;

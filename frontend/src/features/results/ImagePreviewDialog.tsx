@@ -1,15 +1,15 @@
 import {ArrowLeft, ArrowRight, DownloadSimple, X} from '@phosphor-icons/react';
-import {useEffect, useMemo, useRef} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import type {RefObject} from 'react';
 import type {GeneratedPage} from '../../../../shared/types';
 import {Button} from '../../components/Button';
+import {DownloadError, downloadPage} from '../generation/downloads';
 
 type ImagePreviewDialogProps = {
   isOpen: boolean;
   pages: readonly GeneratedPage[];
   selectedPageId: string | undefined;
   onClose: () => void;
-  onDownload: (page: GeneratedPage) => void;
   onImageUnavailable: (pageId: string) => void;
   onSelectPage: (pageId: string) => void;
   returnFocusRef: RefObject<HTMLElement | null>;
@@ -35,13 +35,17 @@ export function ImagePreviewDialog({
   pages,
   selectedPageId,
   onClose,
-  onDownload,
   onImageUnavailable,
   onSelectPage,
   returnFocusRef,
 }: ImagePreviewDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const isMountedRef = useRef(true);
+  const isOpenRef = useRef(false);
+  const downloadRunRef = useRef(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadFeedback, setDownloadFeedback] = useState<{kind: 'success' | 'error'; message: string}>();
   const previewPages = useMemo(
     () => pages.filter(page => page.status === 'succeeded' && Boolean(page.imageUrl)),
     [pages],
@@ -53,6 +57,7 @@ export function ImagePreviewDialog({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    isOpenRef.current = isOpen;
 
     if (isOpen && !dialog.open) {
       dialog.showModal();
@@ -61,9 +66,22 @@ export function ImagePreviewDialog({
     if (!isOpen && dialog.open) dialog.close();
   }, [isOpen]);
 
-  useEffect(() => () => {
-    if (dialogRef.current?.open) dialogRef.current.close();
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      isOpenRef.current = false;
+      downloadRunRef.current += 1;
+      if (dialogRef.current?.open) dialogRef.current.close();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    downloadRunRef.current += 1;
+    setIsDownloading(false);
+    setDownloadFeedback(undefined);
+  }, [isOpen, selectedPage?.id]);
 
   useEffect(() => {
     if (!isOpen || previewPages.length < 2) return;
@@ -86,8 +104,37 @@ export function ImagePreviewDialog({
   }, [isOpen, onSelectPage, previewPages, selectedIndex]);
 
   function handleClose() {
+    if (!isMountedRef.current) return;
+    isOpenRef.current = false;
+    downloadRunRef.current += 1;
     onClose();
     queueMicrotask(() => returnFocusRef.current?.focus());
+  }
+
+  async function handleDownload() {
+    if (isDownloading || !selectedPage) return;
+    const run = downloadRunRef.current + 1;
+    downloadRunRef.current = run;
+    setIsDownloading(true);
+    setDownloadFeedback(undefined);
+
+    try {
+      await downloadPage(selectedPage);
+      if (isMountedRef.current && isOpenRef.current && downloadRunRef.current === run) {
+        setDownloadFeedback({kind: 'success', message: '已开始下载'});
+      }
+    } catch (error) {
+      if (isMountedRef.current && isOpenRef.current && downloadRunRef.current === run) {
+        setDownloadFeedback({
+          kind: 'error',
+          message: error instanceof DownloadError ? error.message : '图片下载失败，请稍后重试',
+        });
+      }
+    } finally {
+      if (isMountedRef.current && isOpenRef.current && downloadRunRef.current === run) {
+        setIsDownloading(false);
+      }
+    }
   }
 
   if (!selectedPage) return null;
@@ -136,10 +183,21 @@ export function ImagePreviewDialog({
             <ArrowRight aria-hidden="true" size={18} weight="bold" />
           </Button>
         </div>
-        <Button onClick={() => onDownload(selectedPage)}>
-          <DownloadSimple aria-hidden="true" size={18} weight="bold" />
-          下载此页
-        </Button>
+        <div className="image-preview-dialog__download">
+          <Button loading={isDownloading} loadingLabel="正在下载" onClick={() => void handleDownload()}>
+            <DownloadSimple aria-hidden="true" size={18} weight="bold" />
+            下载此页
+          </Button>
+          {downloadFeedback ? (
+            <p
+              aria-live="polite"
+              className={`image-preview-dialog__download-feedback image-preview-dialog__download-feedback--${downloadFeedback.kind}`}
+              role={downloadFeedback.kind === 'error' ? 'alert' : 'status'}
+            >
+              {downloadFeedback.message}
+            </p>
+          ) : null}
+        </div>
       </div>
     </dialog>
   );

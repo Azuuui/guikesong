@@ -403,7 +403,8 @@
 
 .image-preview-dialog__topbar,
 .image-preview-dialog__footer,
-.image-preview-dialog__navigation {
+.image-preview-dialog__navigation,
+.image-preview-dialog__download {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -412,6 +413,33 @@
 .image-preview-dialog__topbar,
 .image-preview-dialog__footer {
   justify-content: space-between;
+}
+
+.image-preview-dialog__download {
+  position: relative;
+  justify-content: flex-end;
+}
+
+.image-preview-dialog__download-feedback {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  right: 0;
+  min-width: max-content;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: rgb(17 25 29 / 0.92);
+  border: 1px solid rgb(255 255 255 / 0.24);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.image-preview-dialog__download-feedback--success {
+  color: var(--color-success);
+}
+
+.image-preview-dialog__download-feedback--error {
+  color: var(--color-error);
 }
 
 .image-preview-dialog__topbar p {
