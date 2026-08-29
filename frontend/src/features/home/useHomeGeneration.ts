@@ -1,10 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
-import type {GenerateRequest,GenerateResult,IpProfilePublicOutput,ReferenceAsset,WorkflowId} from '../../../../shared/types';
+import type {GenerateRequest,IpProfilePublicOutput,ReferenceAsset,WorkflowId} from '../../../../shared/types';
 import {travelGuideDestinationError} from '../../../../shared/workflowSchemas';
-import {HISTORY_SAVE_WARNING,type WorkflowSaveInput} from '../create/types';
-import {ApiError,generateAssets,getActiveIpProfile,uploadReferenceFiles} from '../generation/api';
-import {historyRepository} from '../history/historyRepository';
-import {captureHistoryRecord} from '../history/resultMaterializer';
+import {useGenerationJob} from '../generation/GenerationJobProvider';
+import {ApiError,getActiveIpProfile,uploadReferenceFiles} from '../generation/api';
 import type {HomeAttachment as HomeComposerAttachment} from './HomeComposer';
 
 const ALLOWED_MEDIA_TYPES=new Set(['image/jpeg','image/png','image/webp']);
@@ -25,8 +23,6 @@ export type HomeGenerationDependencies={
   revokeObjectURL:(url:string)=>void;
   getActiveIpProfile:(signal?:AbortSignal)=>Promise<IpProfilePublicOutput|null>;
   uploadReferenceFiles:(files:readonly File[],signal?:AbortSignal)=>Promise<ReferenceAsset[]>;
-  generateAssets:(request:GenerateRequest,signal?:AbortSignal)=>Promise<GenerateResult>;
-  saveResult:(input:WorkflowSaveInput)=>Promise<void>;
 };
 
 const DEFAULT_DEPENDENCIES:HomeGenerationDependencies={
@@ -34,11 +30,6 @@ const DEFAULT_DEPENDENCIES:HomeGenerationDependencies={
   revokeObjectURL:url=>URL.revokeObjectURL(url),
   getActiveIpProfile,
   uploadReferenceFiles,
-  generateAssets,
-  async saveResult(input){
-    const record=await captureHistoryRecord(input);
-    await historyRepository.put(record);
-  },
 };
 
 export type UseHomeGenerationOptions={
@@ -74,8 +65,8 @@ function validationMessage(workflowId:WorkflowId,prompt:string,files:readonly Ho
   return;
 }
 
-function resultPath(result:GenerateResult):string{
-  return `/results/${result.requestId}`;
+function isPendingStatus(status:'queued'|'running'|'succeeded'|'partial'|'failed'):boolean{
+  return status==='queued'||status==='running';
 }
 
 export function useHomeGeneration({
@@ -83,14 +74,19 @@ export function useHomeGeneration({
   initialWorkflowId,
   navigate,
 }:UseHomeGenerationOptions){
+  const {activeJob,startGeneration}=useGenerationJob();
   const [selectedWorkflowId,setSelectedWorkflowId]=useState<WorkflowId|undefined>(initialWorkflowId);
   const [prompt,setPrompt]=useState('');
   const [attachments,setAttachments]=useState<HomeAttachment[]>([]);
-  const [busy,setBusy]=useState(false);
+  const [uploading,setUploading]=useState(false);
   const [error,setError]=useState<string>();
   const controllerRef=useRef<AbortController|undefined>(undefined);
   const previewUrlsRef=useRef(new Set<string>());
   const mountedRef=useRef(true);
+
+  // busy 拆分为「本地上传中」与「后台任务未终态」；任务期间保留输入与模板选择。
+  const jobPending=activeJob!==null&&isPendingStatus(activeJob.status);
+  const busy=uploading||jobPending;
 
   useEffect(()=>()=>{
     mountedRef.current=false;
@@ -168,12 +164,13 @@ export function useHomeGeneration({
 
     const controller=new AbortController();
     controllerRef.current=controller;
-    setBusy(true);
+    setUploading(true);
     setError(undefined);
-    let stage:'profile'|'upload'|'generate'='profile';
+    let stage:'profile'|'upload'|'job'='profile';
 
     try{
       let request:GenerateRequest;
+      let assets:ReferenceAsset[]=[];
       if(selectedWorkflowId==='original-ip'){
         const profile=await dependencies.getActiveIpProfile(controller.signal);
         if(!mountedRef.current||controller.signal.aborted) return;
@@ -186,7 +183,7 @@ export function useHomeGeneration({
         }
         stage='upload';
         setAttachments(current=>current.map(attachment=>({...attachment,status:'uploading'})));
-        const assets=await dependencies.uploadReferenceFiles(selectedAttachments.map(item=>item.file),controller.signal);
+        assets=await dependencies.uploadReferenceFiles(selectedAttachments.map(item=>item.file),controller.signal);
         if(assets.length!==1) throw new Error('产品图上传结果数量不一致');
         setAttachments(current=>current.map(attachment=>({...attachment,status:'uploaded'})));
         request={
@@ -195,18 +192,12 @@ export function useHomeGeneration({
           productAssetId:assets[0]!.assetId,
           productDescription:normalizedPrompt,
         };
-        stage='generate';
-        const result=await dependencies.generateAssets(request,controller.signal);
-        await complete(result,assets);
       }else if(selectedWorkflowId==='travel-guide'){
-        stage='generate';
         request={workflowId:'travel-guide',destination:normalizedPrompt};
-        const result=await dependencies.generateAssets(request,controller.signal);
-        await complete(result,[]);
       }else if(selectedWorkflowId==='ugc-photo-campaign'){
         stage='upload';
         setAttachments(current=>current.map(attachment=>({...attachment,status:'uploading'})));
-        const assets=await dependencies.uploadReferenceFiles(selectedAttachments.map(item=>item.file),controller.signal);
+        assets=await dependencies.uploadReferenceFiles(selectedAttachments.map(item=>item.file),controller.signal);
         if(assets.length!==selectedAttachments.length) throw new Error('投稿照片上传结果数量不一致');
         setAttachments(current=>current.map(attachment=>({...attachment,status:'uploaded'})));
         request={
@@ -214,11 +205,7 @@ export function useHomeGeneration({
           photoAssetIds:assets.map(asset=>asset.assetId),
           campaignTheme:normalizedPrompt,
         };
-        stage='generate';
-        const result=await dependencies.generateAssets(request,controller.signal);
-        await complete(result,assets);
       }else{
-        let assets:ReferenceAsset[]=[];
         if(selectedAttachments.length>0){
           stage='upload';
           setAttachments(current=>current.map(attachment=>({...attachment,status:'uploading'})));
@@ -227,10 +214,15 @@ export function useHomeGeneration({
           setAttachments(current=>current.map(attachment=>({...attachment,status:'uploaded'})));
         }
         request={workflowId:'xhs-atlas',topic:normalizedPrompt,referenceAssetIds:assets.map(asset=>asset.assetId)};
-        stage='generate';
-        const result=await dependencies.generateAssets(request,controller.signal);
-        await complete(result,assets);
       }
+
+      // 上传完成后创建后台任务；轮询、历史保存与结果页跳转由应用级 Provider 负责。
+      stage='job';
+      await startGeneration({
+        request,
+        userPrompt:normalizedPrompt,
+        referenceFiles:assets.map((asset,index)=>({asset,blob:selectedAttachments[index]!.file})),
+      });
     }catch(reason){
       if(controller.signal.aborted||!mountedRef.current) return;
       if(stage==='upload'){
@@ -246,28 +238,7 @@ export function useHomeGeneration({
       setError(message);
     }finally{
       if(controllerRef.current===controller) controllerRef.current=undefined;
-      if(mountedRef.current) setBusy(false);
-    }
-
-    async function complete(result:GenerateResult,assets:ReferenceAsset[]){
-      if(!mountedRef.current||controller.signal.aborted) return;
-      const createdAt=new Date().toISOString();
-      let historySaveWarning:string|undefined;
-      try{
-        await dependencies.saveResult({
-          workflowId:result.workflowId,
-          result,
-          userPrompt:normalizedPrompt,
-          referenceFiles:assets.map((asset,index)=>({asset,blob:selectedAttachments[index]!.file})),
-          createdAt,
-          signal:controller.signal,
-        });
-      }catch{
-        if(controller.signal.aborted||!mountedRef.current) return;
-        historySaveWarning=HISTORY_SAVE_WARNING;
-      }
-      if(!mountedRef.current||controller.signal.aborted) return;
-      navigate(resultPath(result),{state:{result,userPrompt:normalizedPrompt,createdAt,historySaveWarning}});
+      if(mountedRef.current) setUploading(false);
     }
   }
 

@@ -3,13 +3,24 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import {describe,expect,it,vi} from 'vitest';
 import {DashboardPage} from './DashboardPage';
+import {GenerationJobProvider} from '../features/generation/GenerationJobProvider';
 
 vi.mock('../features/background/ParticleRevealBackground',()=>({
   ParticleRevealBackground:()=> <div data-testid="particle-reveal-background" />,
 }));
 
 function renderPage(entry='/'){
-  render(<MemoryRouter initialEntries={[entry]}><DashboardPage /></MemoryRouter>);
+  render(
+    <MemoryRouter initialEntries={[entry]}>
+      <GenerationJobProvider dependencies={{
+        createGenerationJob:vi.fn(),
+        getGenerationJob:vi.fn(),
+        saveHistory:vi.fn(),
+      }}>
+        <DashboardPage />
+      </GenerationJobProvider>
+    </MemoryRouter>,
+  );
 }
 
 describe('DashboardPage',()=>{

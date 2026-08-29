@@ -3,7 +3,9 @@ import {useNavigate,useSearchParams} from 'react-router-dom';
 import type {WorkflowId} from '../../../shared/workflows';
 import {TEMPLATE_CONFIGS_BY_ID, getTemplateConfig} from '../config/templates';
 import {ParticleRevealBackground} from '../features/background/ParticleRevealBackground';
+import {useGenerationJob} from '../features/generation/GenerationJobProvider';
 import {HomeComposer} from '../features/home/HomeComposer';
+import {HomeGenerationStatus} from '../features/home/HomeGenerationStatus';
 import {useHomeGeneration} from '../features/home/useHomeGeneration';
 import {HomeTemplateRail} from '../features/templates/HomeTemplateRail';
 
@@ -18,6 +20,7 @@ function initialWorkflow(searchParams:URLSearchParams):WorkflowId|undefined{
 export function DashboardPage(){
   const navigate=useNavigate();
   const [searchParams]=useSearchParams();
+  const jobContext=useGenerationJob();
   const generation=useHomeGeneration({initialWorkflowId:initialWorkflow(searchParams),navigate});
 
   useEffect(()=>{
@@ -50,6 +53,15 @@ export function DashboardPage(){
               ?getTemplateConfig(generation.selectedWorkflowId).inputAdvice
               :GENERIC_COMPOSER_PLACEHOLDER}
             prompt={generation.prompt}
+          />
+          <HomeGenerationStatus
+            connectionState={jobContext.connectionState}
+            historySaveWarning={jobContext.historySaveWarning}
+            job={jobContext.activeJob}
+            jobExpired={jobContext.jobExpired}
+            onOpenResult={()=>void jobContext.openResult()}
+            onRetry={()=>void generation.submit()}
+            onRetryHistorySave={()=>void jobContext.retryHistorySave()}
           />
           <p className="dashboard-page__composer-note">一次灵感输入，全套图文输出，文旅爆款即刻启程。</p>
         </div>
