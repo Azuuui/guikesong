@@ -44,8 +44,8 @@ describe('AppShell',()=>{
   });
 
   it.each([
-    ['/','工作台'],
-    ['/templates','选择一个模板开始创作'],
+    ['/','从一句话开始，生成一套文旅表达。'],
+    ['/templates','全部模板'],
     ['/templates/xhs-atlas','小红书图鉴创作'],
     ['/templates/original-ip/create','原创 IP 商品化'],
     ['/results/request-1','没有找到这条生成结果'],

@@ -28,7 +28,7 @@ export function TemplateDetailPage(){
       </Link>
       <div className="template-detail__hero">
         <div className="template-detail__media">
-          <TemplatePreview description={template.description} name={template.name} variant={template.previewVariant} />
+          <TemplatePreview description={template.description} imageUrl={template.previewImageUrl} name={template.name} variant={template.previewVariant} />
         </div>
         <div className="template-detail__intro">
           <p className="template-detail__eyebrow">QIANSCAPE AI TEMPLATE</p>

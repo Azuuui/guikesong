@@ -1,186 +1,63 @@
-import {ArrowRight, ImageSquare, Plus} from '@phosphor-icons/react';
-import {useEffect, useState} from 'react';
-import {Link} from 'react-router-dom';
+import {useEffect} from 'react';
+import {useNavigate,useSearchParams} from 'react-router-dom';
+import type {WorkflowId} from '../../../shared/workflows';
 import {TEMPLATE_CONFIGS_BY_ID} from '../config/templates';
-import {TemplateGallery} from '../features/templates/TemplateGallery';
-import {historyRepository} from '../features/history/historyRepository';
-import {formatHistoryTime} from '../features/history/time';
-import type {HistoryRecord} from '../features/history/historyTypes';
+import {ParticleRevealBackground} from '../features/background/ParticleRevealBackground';
+import {HomeComposer} from '../features/home/HomeComposer';
+import {useHomeGeneration} from '../features/home/useHomeGeneration';
+import {HomeTemplateRail} from '../features/templates/HomeTemplateRail';
 
-type DashboardState =
-  | {status: 'loading'; records: []}
-  | {status: 'ready'; records: HistoryRecord[]}
-  | {status: 'error'; records: []};
-
-function RecentTaskSkeleton() {
-  return (
-    <div aria-label="正在读取最近任务" className="recent-task-list recent-task-list--loading" role="status">
-      {Array.from({length: 3}, (_, index) => (
-        <div className="recent-task recent-task--skeleton" key={index}>
-          <span className="skeleton recent-task__thumbnail" />
-          <span className="recent-task__body">
-            <span className="skeleton skeleton--title" />
-            <span className="skeleton skeleton--meta" />
-          </span>
-          <span className="skeleton skeleton--status" />
-        </div>
-      ))}
-    </div>
-  );
+function initialWorkflow(searchParams:URLSearchParams):WorkflowId{
+  const requested=searchParams.get('template') as WorkflowId|null;
+  return requested&&TEMPLATE_CONFIGS_BY_ID.has(requested)?requested:'xhs-atlas';
 }
 
-function firstStoredThumbnail(record: HistoryRecord): Blob | undefined {
-  const blobsByPageId = new Map(record.pageBlobs.map(page => [page.pageId, page.blob]));
-  const firstSuccessfulPage = record.result.pages.find(
-    page => page.status === 'succeeded' && blobsByPageId.has(page.id),
-  );
-  return firstSuccessfulPage ? blobsByPageId.get(firstSuccessfulPage.id) : undefined;
-}
+export function DashboardPage(){
+  const navigate=useNavigate();
+  const [searchParams]=useSearchParams();
+  const generation=useHomeGeneration({initialWorkflowId:initialWorkflow(searchParams),navigate});
 
-function recordTitle(record: HistoryRecord): string {
-  return record.result.workflowId === 'original-ip'
-    ? record.result.copy.title
-    : record.result.copy.titles[0] ?? '';
-}
-
-function RecentTaskList({records, thumbnailUrls}: {
-  records: HistoryRecord[];
-  thumbnailUrls: ReadonlyMap<string, string>;
-}) {
-  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
-
-  return (
-    <div className="recent-task-list">
-      {records.map(record => {
-        const template = TEMPLATE_CONFIGS_BY_ID.get(record.workflowId);
-        const successfulPages = record.result.pages.filter(page => page.status === 'succeeded').length;
-        const totalPages = record.result.pages.length;
-        const thumbnailUrl = thumbnailUrls.get(record.id);
-        const showThumbnail = thumbnailUrl && !failedImages.has(record.id);
-        const statusLabel = record.result.status === 'succeeded' ? '已完成' : '部分完成';
-        const title = recordTitle(record) || record.userPrompt;
-
-        return (
-          <Link className="recent-task" key={record.id} to={`/history/${record.id}`}>
-            <span className="recent-task__thumbnail">
-              {showThumbnail ? (
-                <img
-                  alt={`${title || template?.name || '生成任务'}缩略图`}
-                  onError={() => setFailedImages(current => new Set(current).add(record.id))}
-                  src={thumbnailUrl}
-                />
-              ) : (
-                <span aria-label="任务缩略图暂不可用" className="recent-task__thumbnail-placeholder" role="img">
-                  <ImageSquare aria-hidden="true" size={22} />
-                </span>
-              )}
-            </span>
-            <span className="recent-task__body">
-              <strong>{title}</strong>
-              <span>{template?.name ?? '文旅素材'} {formatHistoryTime(record.createdAt)}</span>
-            </span>
-            <span className={`recent-task__status recent-task__status--${record.result.status}`}>
-              <strong>{statusLabel}</strong>
-              <span>{successfulPages}/{totalPages} 页成功</span>
-            </span>
-            <ArrowRight aria-hidden="true" className="recent-task__arrow" size={18} weight="bold" />
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-export function DashboardPage() {
-  const [state, setState] = useState<DashboardState>({status: 'loading', records: []});
-  const [thumbnailUrls, setThumbnailUrls] = useState<ReadonlyMap<string, string>>(new Map());
-
-  useEffect(() => {
-    let active = true;
-    const createdUrls: string[] = [];
-
-    historyRepository.list().then(records => {
-      if (!active) return;
-      const recentRecords = records.slice(0, 8);
-      const nextThumbnailUrls = new Map<string, string>();
-
-      recentRecords.forEach(record => {
-        const blob = firstStoredThumbnail(record);
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        createdUrls.push(url);
-        nextThumbnailUrls.set(record.id, url);
-      });
-
-      setThumbnailUrls(nextThumbnailUrls);
-      setState({status: 'ready', records: recentRecords});
-    }).catch(() => {
-      if (active) setState({status: 'error', records: []});
+  useEffect(()=>{
+    if(window.location.hash!=='#composer') return;
+    const frame=window.requestAnimationFrame(()=>{
+      document.querySelector<HTMLTextAreaElement>('.home-composer__textarea')?.focus();
     });
-
-    return () => {
-      active = false;
-      createdUrls.forEach(url => URL.revokeObjectURL(url));
-    };
-  }, []);
-
-  const hasRecords = state.status === 'ready' && state.records.length > 0;
+    return ()=>window.cancelAnimationFrame(frame);
+  },[]);
 
   return (
-    <section aria-labelledby="dashboard-title" className="dashboard-page">
-      <header className="page-header">
-        <div>
-          <h1 id="dashboard-title">工作台</h1>
-          <p>从最近任务继续工作，或选择模板创建新的文旅营销素材。</p>
-        </div>
-        <Link className="button dashboard-page__primary-action" to="/templates">
-          <Plus aria-hidden="true" size={18} weight="bold" />
-          <span>创建新素材</span>
-        </Link>
-      </header>
+    <section aria-labelledby="dashboard-title" className="dashboard-page dashboard-page--creative-home">
+      <ParticleRevealBackground />
+      <div className="dashboard-page__veil" aria-hidden="true" />
+      <div className="dashboard-page__content">
+        <header className="dashboard-page__hero">
+          <p className="dashboard-page__eyebrow">QIANSCAPE AI / TRAVEL CREATIVE STUDIO</p>
+          <h1 id="dashboard-title">从一句话开始，<br />生成一套文旅表达。</h1>
+          <p className="dashboard-page__lede">输入地点、主题和想要传达的感觉</p>
+        </header>
 
-      {state.status === 'loading' ? (
-        <section aria-labelledby="recent-tasks-loading-title" className="dashboard-empty">
-          <div className="dashboard-empty__copy">
-            <h2 id="recent-tasks-loading-title">正在读取最近任务</h2>
-            <p>正在整理保存在当前浏览器中的创作记录。</p>
-          </div>
-          <RecentTaskSkeleton />
-        </section>
-      ) : hasRecords ? (
-        <div className="dashboard-layout">
-          <section aria-labelledby="recent-tasks-title" className="dashboard-recent">
-            <div className="section-heading">
-              <h2 id="recent-tasks-title">继续最近的创作</h2>
-              <Link aria-label="查看全部本机历史记录" to="/history">查看全部历史</Link>
-            </div>
-            <RecentTaskList records={state.records} thumbnailUrls={thumbnailUrls} />
-          </section>
-
-          <aside aria-labelledby="quick-templates-title" className="dashboard-templates">
-            <div className="section-heading">
-              <h2 id="quick-templates-title">模板快捷入口</h2>
-            </div>
-            <TemplateGallery compact headingLevel={3} />
-          </aside>
+        <div id="composer">
+          <HomeComposer
+            attachments={generation.attachments}
+            busy={generation.busy}
+            error={generation.error}
+            onAddFiles={generation.addFiles}
+            onPromptChange={generation.setPrompt}
+            onRemoveAttachment={generation.removeAttachment}
+            onSubmit={()=>void generation.submit()}
+            prompt={generation.prompt}
+          />
         </div>
-      ) : state.status === 'error' ? (
-        <section aria-labelledby="recent-tasks-error-title" className="dashboard-empty">
-          <div className="dashboard-empty__copy">
-            <h2 id="recent-tasks-error-title">暂时无法读取最近任务</h2>
-            <p role="status">你仍可以选择模板创建新素材。</p>
-          </div>
-          <TemplateGallery headingLevel={3} />
-        </section>
-      ) : (
-        <section aria-labelledby="first-creation-title" className="dashboard-empty">
-          <div className="dashboard-empty__copy">
-            <h2 id="first-creation-title">开始创建第一套文旅素材</h2>
-            <p>选择一个模板，输入一句话需求，系统会生成文案、标签和完整图片页面。</p>
-          </div>
-          <TemplateGallery headingLevel={3} />
-        </section>
-      )}
+
+        <p aria-live="polite" className="dashboard-page__selection-status">
+          当前使用：{TEMPLATE_CONFIGS_BY_ID.get(generation.selectedWorkflowId)?.name}
+        </p>
+
+        <HomeTemplateRail
+          onSelect={generation.selectWorkflow}
+          selectedWorkflowId={generation.selectedWorkflowId}
+        />
+      </div>
     </section>
   );
 }

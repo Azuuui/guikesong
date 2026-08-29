@@ -15,6 +15,7 @@ export function TemplateCard({template, compact = false, headingLevel = 2}: Temp
       <div className="template-card__media">
         <TemplatePreview
           description={template.description}
+          imageUrl={template.previewImageUrl}
           name={template.name}
           variant={template.previewVariant}
         />
@@ -45,14 +46,15 @@ export function TemplateCard({template, compact = false, headingLevel = 2}: Temp
           {template.inputAdvice}
         </p>
 
-        <Link
-          aria-label={`使用模板：${template.name}`}
-          className="template-card__action"
-          to={`/templates/${template.id}/create`}
-        >
-          <span>使用模板</span>
-          <ArrowRight aria-hidden="true" size={18} weight="bold" />
-        </Link>
+        <div className="template-card__actions">
+          <Link aria-label={`使用模板：${template.name}`} className="template-card__action" to={`/?template=${template.id}#composer`}>
+            <span>使用模板</span>
+            <ArrowRight aria-hidden="true" size={18} weight="bold" />
+          </Link>
+          <Link aria-label={`查看详情：${template.name}`} className="template-card__detail-link" to={`/templates/${template.id}`}>
+            查看详情
+          </Link>
+        </div>
       </div>
     </article>
   );

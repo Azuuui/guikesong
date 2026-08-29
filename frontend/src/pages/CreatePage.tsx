@@ -43,6 +43,7 @@ function TemplateGuide({template}: {template: TemplateConfig}) {
       <div className="template-guide__preview">
         <TemplatePreview
           description={template.description}
+          imageUrl={template.previewImageUrl}
           name={template.name}
           variant={template.previewVariant}
         />
