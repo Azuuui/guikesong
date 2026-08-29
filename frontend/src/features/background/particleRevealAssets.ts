@@ -41,6 +41,6 @@ export const PARTICLE_COLORS=[
 ] as const satisfies readonly ParticleColor[];
 
 export const PARTICLE_PROFILES={
-  desktop:{cell:7,dotRadius:2.4,maxDpr:2,maxFps:60,baseFade:0.018},
-  mobile:{cell:9,dotRadius:2.4,maxDpr:1.5,maxFps:30,baseFade:0.018},
+  desktop:{cell:7,dotRadius:1.8,maxDpr:2,maxFps:60,baseFade:0.018},
+  mobile:{cell:9,dotRadius:1.8,maxDpr:1.5,maxFps:30,baseFade:0.018},
 } as const satisfies Record<'desktop'|'mobile',ParticleProfile>;

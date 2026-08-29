@@ -39,8 +39,8 @@ function makeScheduler(){
 
 describe('particle reveal configuration',()=>{
   it('锁定桌面、移动和五色参数',()=>{
-    expect(PARTICLE_PROFILES.desktop).toMatchObject({cell:7,dotRadius:2.4,maxDpr:2,maxFps:60});
-    expect(PARTICLE_PROFILES.mobile).toMatchObject({cell:9,dotRadius:2.4,maxDpr:1.5,maxFps:30});
+    expect(PARTICLE_PROFILES.desktop).toMatchObject({cell:7,dotRadius:1.8,maxDpr:2,maxFps:60});
+    expect(PARTICLE_PROFILES.mobile).toMatchObject({cell:9,dotRadius:1.8,maxDpr:1.5,maxFps:30});
     expect(PARTICLE_COLORS).toEqual([
       [212,53,28],
       [26,26,26],
