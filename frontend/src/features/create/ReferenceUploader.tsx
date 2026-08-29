@@ -18,6 +18,8 @@ export type ReferenceUploaderProps = {
   status?: ReferenceUploadStatus;
   /** 允许选择的最大张数；原创 IP 产品图传 1，图鉴参考图传 4。 */
   maxFiles?: number;
+  /** 从本机历史恢复的文件：进入页面即选中并可预览。 */
+  initialFiles?: File[];
   title?: string;
   description?: string;
   emptyLabel?: string;
@@ -46,15 +48,22 @@ export function ReferenceUploader({
   onFilesChange,
   status = 'pending',
   maxFiles = 4,
+  initialFiles,
   title = '参考图片，可选',
   description,
   emptyLabel = '还没有选择参考图片',
   selectLabel = '选择参考图片',
   selectHint = '图片会先在本机预览，生成时再上传',
 }: ReferenceUploaderProps) {
-  const [entries, setEntries] = useState<PreviewEntry[]>([]);
+  const [entries, setEntries] = useState<PreviewEntry[]>(() =>
+    (initialFiles ?? []).map(file => ({
+      file,
+      key: fileKey(file),
+      url: URL.createObjectURL(file),
+    })),
+  );
   const [messages, setMessages] = useState<string[]>([]);
-  const entriesRef = useRef<PreviewEntry[]>([]);
+  const entriesRef = useRef<PreviewEntry[]>(entries);
 
   const helpText = description ?? `最多 ${maxFiles} 张，支持 JPG、PNG、WebP，单张不超过 10MB。`;
 

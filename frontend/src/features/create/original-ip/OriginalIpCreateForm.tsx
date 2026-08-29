@@ -34,6 +34,8 @@ type ProfileState =
 export type OriginalIpCreateFormProps = WorkflowFormProps & {
   template: TemplateConfig;
   initialProductDescription?: string;
+  /** 从本机历史恢复的产品图。 */
+  initialProductFiles?: File[];
 };
 
 export function OriginalIpCreateForm({
@@ -42,10 +44,11 @@ export function OriginalIpCreateForm({
   saveResult,
   template,
   initialProductDescription = '',
+  initialProductFiles,
 }: OriginalIpCreateFormProps) {
   const [profileState, setProfileState] = useState<ProfileState>({status: 'loading'});
   const [productDescription, setProductDescription] = useState(initialProductDescription);
-  const [productFiles, setProductFiles] = useState<File[]>([]);
+  const [productFiles, setProductFiles] = useState<File[]>(initialProductFiles ?? []);
   const [phase, setPhaseState] = useState<CreatePhase>('idle');
   const [stageIndex, setStageIndex] = useState(0);
   const [fieldError, setFieldError] = useState<string>();
@@ -252,6 +255,7 @@ export function OriginalIpCreateForm({
         description="只需 1 张主打产品图，支持 JPG、PNG、WebP，单张不超过 10MB。"
         disabled={isBusy}
         emptyLabel="还没有选择产品图"
+        initialFiles={initialProductFiles}
         maxFiles={1}
         onFilesChange={files => {
           setProductFiles(files);

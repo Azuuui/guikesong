@@ -19,6 +19,8 @@ const GENERATE_FAILURE_MESSAGE = '素材生成失败，请稍后重试。';
 export type XhsAtlasCreateFormProps = WorkflowFormProps & {
   template: TemplateConfig;
   initialTopic?: string;
+  /** 从本机历史恢复的参考图。 */
+  initialReferenceFiles?: File[];
 };
 
 /** 与后端 parseGenerateRequest 一致的选题校验：必须包含至少 2 的数量；超过 36 由工作流钳制。 */
@@ -36,9 +38,10 @@ export function XhsAtlasCreateForm({
   saveResult,
   template,
   initialTopic = '',
+  initialReferenceFiles,
 }: XhsAtlasCreateFormProps) {
   const [topic, setTopic] = useState(initialTopic);
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>(initialReferenceFiles ?? []);
   const [phase, setPhaseState] = useState<CreatePhase>('idle');
   const [fieldError, setFieldError] = useState<string>();
   const [operationError, setOperationError] = useState<string>();
@@ -192,6 +195,7 @@ export function XhsAtlasCreateForm({
 
       <ReferenceUploader
         disabled={isBusy}
+        initialFiles={initialReferenceFiles}
         onFilesChange={nextFiles => {
           setFiles(nextFiles);
           setUploadStatus('pending');

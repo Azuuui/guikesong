@@ -4,8 +4,8 @@ import {Link, useNavigate, useParams} from 'react-router-dom';
 import {ConfirmDialog} from '../components/ConfirmDialog';
 import {ResultDetail} from '../features/results/ResultDetail';
 import {historyRepository} from '../features/history/historyRepository';
+import {buildRegenerationState, type HistoryRecord} from '../features/history/historyTypes';
 import {materializeHistoryResult} from '../features/history/resultMaterializer';
-import type {HistoryRecord} from '../features/history/historyTypes';
 import {NotFoundPage} from './NotFoundPage';
 
 type HistoryDetailState =
@@ -113,7 +113,7 @@ export function HistoryDetailPage() {
       <ResultDetail
         createdAt={state.record.createdAt}
         onRegenerate={() => navigate(`/templates/${state.record.workflowId}/create`, {
-          state: {initialPrompt: state.record.userPrompt, regenerationNotice: '参考图片需要重新上传'},
+          state: buildRegenerationState(state.record),
         })}
         result={state.result}
         source="history"

@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {WorkflowPageBase} from '../../../../shared/types';
-import {makeGenerateResult} from '../../test/fixtures';
+import {makeGenerateResult,makeOriginalIpResult,makeXhsAtlasResult} from '../../test/fixtures';
 import {
   buildPackage,
   copyText,
@@ -151,16 +151,56 @@ describe('generation downloads',()=>{
     });
   });
 
-  it('builds an xhs-atlas package exporting all candidate titles',async()=>{
-    const result=makeGenerateResult({workflowId:'xhs-atlas',pageCount:0});
+  it('builds an xhs-atlas package with release copy and list manifest',async()=>{
+    const result=makeXhsAtlasResult({pageCount:0});
 
     const zip=await JSZip.loadAsync(await (await buildPackage(result)).arrayBuffer());
 
-    expect(Object.keys(zip.files)).toEqual(['文案.txt']);
-    await expect(zip.file('文案.txt')?.async('string')).resolves.toBe(
+    expect(Object.keys(zip.files).sort()).toEqual(['发布文案.txt','清单.json'].sort());
+    await expect(zip.file('发布文案.txt')?.async('string')).resolves.toBe(
       '候选标题：\n贵阳美食图鉴来了\n12种贵阳必吃美食\n收藏这份贵阳美食清单\n正文：按场景整理的贵阳美食清单正文。\n标签：#贵阳美食、#干货分享',
     );
+    await expect(JSON.parse(await zip.file('清单.json')!.async('string'))).toEqual(result.list);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('builds an xhs-atlas package with the cover and successful content pages',async()=>{
+    const result=makeXhsAtlasResult({failedIndexes:[2],pageCount:3});
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(blobResponse('cover'))
+      .mockResolvedValueOnce(blobResponse('content'));
+
+    const zip=await JSZip.loadAsync(await (await buildPackage(result)).arrayBuffer());
+
+    expect(Object.keys(zip.files).sort()).toEqual([
+      'xhs-atlas-1.svg',
+      'xhs-atlas-2.svg',
+      '发布文案.txt',
+      '清单.json',
+    ].sort());
+    expect(fetch).toHaveBeenNthCalledWith(1,result.pages[0].imageUrl,{
+      signal:expect.any(AbortSignal),
+    });
+    expect(fetch).toHaveBeenNthCalledWith(2,result.pages[1].imageUrl,{
+      signal:expect.any(AbortSignal),
+    });
+  });
+
+  it('includes the overview image in an original-ip package when present',async()=>{
+    const result=makeOriginalIpResult({pageCount:5});
+    vi.mocked(fetch).mockImplementation(async()=>blobResponse('image'));
+
+    const zip=await JSZip.loadAsync(await (await buildPackage(result)).arrayBuffer());
+
+    expect(Object.keys(zip.files).sort()).toEqual([
+      'original-ip-1.svg',
+      'original-ip-2.svg',
+      'original-ip-3.svg',
+      'original-ip-4.svg',
+      'original-ip-overview-1.svg',
+      '文案.txt',
+    ].sort());
+    expect(fetch).toHaveBeenCalledTimes(5);
   });
 
   it('still creates a copy package when every image failed',async()=>{

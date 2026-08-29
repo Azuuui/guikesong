@@ -176,6 +176,10 @@ export async function captureHistoryRecord({
     asset:{...file.asset},
     blob:file.blob,
   }));
+  // 原创 IP 历史必须携带产品图快照，供重新生成时本地恢复。
+  if(resultSnapshot.workflowId==='original-ip'&&!referenceFilesSnapshot[0]){
+    throw new HistorySaveError('原创 IP 结果缺少产品图，无法保存本机历史。');
+  }
   const captureController=new AbortController();
   let totalBytes=0;
   const consumeBytes=(bytes:number)=>{
@@ -195,14 +199,26 @@ export async function captureHistoryRecord({
         consumeBytes,
       )),
     );
+    const pageBlobs=captured.filter((page):page is StoredPageBlob=>page!==undefined);
+    if(resultSnapshot.workflowId==='original-ip'){
+      return {
+        id:resultSnapshot.requestId,
+        createdAt:savedAt,
+        userPrompt,
+        workflowId:'original-ip',
+        productFile:referenceFilesSnapshot[0]!,
+        result:resultSnapshot,
+        pageBlobs,
+      };
+    }
     return {
       id:resultSnapshot.requestId,
       createdAt:savedAt,
-      workflowId:resultSnapshot.workflowId,
       userPrompt,
+      workflowId:'xhs-atlas',
       referenceFiles:referenceFilesSnapshot,
       result:resultSnapshot,
-      pageBlobs:captured.filter((page):page is StoredPageBlob=>page!==undefined),
+      pageBlobs,
     };
   }catch(error){
     captureController.abort(error);

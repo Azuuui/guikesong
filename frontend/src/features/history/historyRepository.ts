@@ -2,7 +2,7 @@ import {openDB,type DBSchema,type IDBPDatabase} from 'idb';
 import {HistorySaveError,type HistoryRecord} from './historyTypes';
 
 const DATABASE_NAME='travel-marketing-history';
-const DATABASE_VERSION=1;
+const DATABASE_VERSION=2;
 const STORE_NAME='records';
 const CREATED_AT_INDEX='by-created-at';
 const RECORD_LIMIT=20;
@@ -18,6 +18,11 @@ interface HistoryDatabase extends DBSchema{
 async function openHistoryDatabase():Promise<IDBPDatabase<HistoryDatabase>>{
   return openDB<HistoryDatabase>(DATABASE_NAME,DATABASE_VERSION,{
     upgrade(database){
+      // v1 存量记录基于旧模板合同（templateId/response），与 v2 联合结构不兼容：
+      // 升级时一次性重建 store 清空旧记录；已是 v2 的数据库不会再次触发。
+      if(database.objectStoreNames.contains(STORE_NAME)){
+        database.deleteObjectStore(STORE_NAME);
+      }
       const store=database.createObjectStore(STORE_NAME,{keyPath:'id'});
       store.createIndex(CREATED_AT_INDEX,'createdAt');
     },

@@ -154,10 +154,15 @@ afterEach(() => {
 });
 
 describe('XhsAtlasCreateForm', () => {
-  function renderAtlasForm(props: Partial<WorkflowFormProps> = {}, initialTopic?: string) {
+  function renderAtlasForm(
+    props: Partial<WorkflowFormProps> = {},
+    initialTopic?: string,
+    initialReferenceFiles?: File[],
+  ) {
     const formProps = {...makeFormProps(), ...props};
     render(
       <XhsAtlasCreateForm
+        initialReferenceFiles={initialReferenceFiles}
         initialTopic={initialTopic}
         template={getTemplateConfig('xhs-atlas')}
         {...formProps}
@@ -174,6 +179,30 @@ describe('XhsAtlasCreateForm', () => {
     renderAtlasForm({}, '贵阳的12种美食');
 
     expect(screen.getByLabelText('图鉴选题')).toHaveValue('贵阳的12种美食');
+  });
+
+  it('从历史恢复参考图并可直接提交', async () => {
+    const user = userEvent.setup();
+    const restoredFiles = [imageFile('restored-a.png'), imageFile('restored-b.png')];
+    generateAssetsMock.mockResolvedValue(makeXhsAtlasResult());
+    uploadReferenceFilesMock.mockResolvedValue(restoredFiles.map((file, index) => makeAsset(`asset-${index + 1}`, file.name)));
+    const props = renderAtlasForm({}, '贵阳的12种美食', restoredFiles);
+
+    expect(screen.getByLabelText('图鉴选题')).toHaveValue('贵阳的12种美食');
+    const previews = screen.getByRole('list', {name: '已选择的图片'});
+    expect(within(previews).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(previews).getByText('restored-a.png')).toBeInTheDocument();
+    expect(within(previews).getByText('restored-b.png')).toBeInTheDocument();
+
+    await submitAtlas(user);
+
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1));
+    expect(uploadReferenceFilesMock).toHaveBeenCalledWith(restoredFiles, expect.any(AbortSignal));
+    expect(generateAssetsMock.mock.calls[0][0]).toEqual({
+      workflowId: 'xhs-atlas',
+      topic: '贵阳的12种美食',
+      referenceAssetIds: ['asset-1', 'asset-2'],
+    });
   });
 
   it('无数字选题阻止提交并提示', async () => {
@@ -318,11 +347,16 @@ describe('XhsAtlasCreateForm', () => {
 });
 
 describe('OriginalIpCreateForm', () => {
-  function renderIpForm(props: Partial<WorkflowFormProps> = {}, initialProductDescription?: string) {
+  function renderIpForm(
+    props: Partial<WorkflowFormProps> = {},
+    initialProductDescription?: string,
+    initialProductFiles?: File[],
+  ) {
     const formProps = {...makeFormProps(), ...props};
     render(
       <OriginalIpCreateForm
         initialProductDescription={initialProductDescription}
+        initialProductFiles={initialProductFiles}
         template={getTemplateConfig('original-ip')}
         {...formProps}
       />,
@@ -482,6 +516,26 @@ describe('OriginalIpCreateForm', () => {
     const completion = onComplete.mock.calls[0][0] as WorkflowCompletion;
     expect(completion).toMatchObject({requestId: 'request-ip', userPrompt: '米白陶瓷杯', result});
     expect(completion.historySaveWarning).toBeUndefined();
+  });
+
+  it('从历史恢复产品描述与产品图并可直接提交', async () => {
+    const user = userEvent.setup();
+    getActiveIpProfileMock.mockResolvedValue(makeLockedProfile());
+    const restoredFile = imageFile('restored-cup.png');
+    generateAssetsMock.mockResolvedValue(makeOriginalIpResult());
+    uploadReferenceFilesMock.mockResolvedValue([makeAsset('asset-product', 'restored-cup.png')]);
+    const props = renderIpForm({}, '米白陶瓷杯', [restoredFile]);
+    await screen.findByRole('heading', {name: '山灵君'});
+
+    expect(screen.getByLabelText('产品描述')).toHaveValue('米白陶瓷杯');
+    const previews = screen.getByRole('list', {name: '已选择的图片'});
+    expect(within(previews).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(previews).getByText('restored-cup.png')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', {name: '开始生成'}));
+
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1));
+    expect(uploadReferenceFilesMock).toHaveBeenCalledWith([restoredFile], expect.any(AbortSignal));
   });
 
   it('产品图上传失败显示安全错误且可重试', async () => {

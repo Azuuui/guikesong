@@ -7,6 +7,7 @@ import {EmptyState} from '../components/EmptyState';
 import {StatusBadge} from '../components/StatusBadge';
 import {TEMPLATE_CONFIGS_BY_ID} from '../config/templates';
 import {historyRepository} from '../features/history/historyRepository';
+import {buildRegenerationState} from '../features/history/historyTypes';
 import {formatHistoryTime} from '../features/history/time';
 import type {HistoryRecord} from '../features/history/historyTypes';
 
@@ -134,7 +135,7 @@ function HistoryRow({
         <div className="history-row__menu-content">
           <Button
             onClick={() => navigate(`/templates/${record.workflowId}/create`, {
-              state: {initialPrompt: record.userPrompt, regenerationNotice: '参考图片需要重新上传'},
+              state: buildRegenerationState(record),
             })}
             variant="ghost"
           >

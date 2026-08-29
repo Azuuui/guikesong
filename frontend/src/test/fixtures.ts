@@ -35,6 +35,19 @@ const XHS_ATLAS_ROLES:XhsAtlasPageRole[]=['cover','content'];
 export function makeOriginalIpResult(options:MakeResultOptions={}):OriginalIpResult{
   const failed=new Set(options.failedIndexes??[]);
   const pageCount=options.pageCount??4;
+  const pages=Array.from({length:pageCount},(_,index)=>{
+    const isOverview=index>=ORIGINAL_IP_ROLES.length;
+    return {
+      id:`page-${index+1}`,
+      role:isOverview?'overview' as const:ORIGINAL_IP_ROLES[index],
+      filename:isOverview?`original-ip-overview-${index+1-ORIGINAL_IP_ROLES.length}.svg`:`original-ip-${index+1}.svg`,
+      status:failed.has(index)?'failed' as const:'succeeded' as const,
+      imageUrl:failed.has(index)?undefined:`data:image/svg+xml,fixture-${index+1}`,
+      error:failed.has(index)?'图片生成服务暂时不可用':undefined,
+      alt:`贵州夏季避暑宣传第 ${index+1} 页`,
+    };
+  });
+  const overviewPage=pages.find(page=>page.role==='overview'&&page.status==='succeeded');
   return {
     requestId:options.requestId??'request-fixture',
     workflowId:'original-ip',
@@ -46,15 +59,8 @@ export function makeOriginalIpResult(options:MakeResultOptions={}):OriginalIpRes
     },
     ipProfileId:'profile-1',
     ipProfileVersion:1,
-    pages:Array.from({length:pageCount},(_,index)=>({
-      id:`page-${index+1}`,
-      role:ORIGINAL_IP_ROLES[index%ORIGINAL_IP_ROLES.length],
-      filename:`original-ip-${index+1}.svg`,
-      status:failed.has(index)?'failed':'succeeded',
-      imageUrl:failed.has(index)?undefined:`data:image/svg+xml,fixture-${index+1}`,
-      error:failed.has(index)?'图片生成服务暂时不可用':undefined,
-      alt:`贵州夏季避暑宣传第 ${index+1} 页`,
-    })),
+    pages,
+    overview:overviewPage?{pageId:overviewPage.id,filename:overviewPage.filename}:undefined,
     warnings:failed.size?['部分图片生成失败']:[],
   };
 }
@@ -123,13 +129,35 @@ export function makeGenerateResult(options:MakeResultOptions & {workflowId?:'ori
 
 export function makeHistoryRecord(index=0,result:GenerateResult=makeOriginalIpResult()):HistoryRecord{
   const id=`request-${index}`;
+  const createdAt=new Date(Date.UTC(2026,7,29,5,index)).toISOString();
+  if(result.workflowId==='original-ip'){
+    return {
+      id,
+      createdAt,
+      workflowId:'original-ip',
+      userPrompt:'贵州夏季避暑宣传',
+      result:{...result,requestId:id},
+      pageBlobs:[],
+      productFile:{
+        asset:{
+          assetId:'asset-product',
+          url:'/api/reference-assets/asset-product',
+          originalName:'product.png',
+          mediaType:'image/png',
+          size:8,
+          createdAt:'2026-08-29T00:00:00.000Z',
+        },
+        blob:new Blob(['product'],{type:'image/png'}),
+      },
+    };
+  }
   return {
     id,
-    createdAt:new Date(Date.UTC(2026,7,29,5,index)).toISOString(),
-    workflowId:result.workflowId,
-    userPrompt:'贵州夏季避暑宣传',
-    referenceFiles:[],
+    createdAt,
+    workflowId:'xhs-atlas',
+    userPrompt:'贵阳的12种美食',
     result:{...result,requestId:id},
     pageBlobs:[],
+    referenceFiles:[],
   };
 }

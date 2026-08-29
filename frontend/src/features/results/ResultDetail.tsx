@@ -21,6 +21,8 @@ import {TEMPLATE_CONFIGS_BY_ID} from '../../config/templates';
 import {copyText, DownloadError, downloadPackage, downloadPage} from '../generation/downloads';
 import {formatHistoryTime} from '../history/time';
 import {ImagePreviewDialog} from './ImagePreviewDialog';
+import {OriginalIpResultPanel} from './OriginalIpResult';
+import {XhsAtlasResultPanel} from './XhsAtlasResult';
 
 export type ResultDetailProps = {
   result: GenerateResult;
@@ -31,8 +33,8 @@ export type ResultDetailProps = {
   onRegenerate: () => void;
 };
 
-type CopyTarget = 'title' | 'body' | 'tags';
-type Feedback = {target: CopyTarget | 'page' | 'package'; message: string; kind: 'success' | 'error'} | undefined;
+type DownloadTarget = 'page' | 'package';
+type DownloadFeedback = {target: DownloadTarget; message: string; kind: 'success' | 'error'} | undefined;
 
 const PAGE_ROLE_LABELS: Record<OriginalIpPageRole | XhsAtlasPageRole, string> = {
   'brand-cover': '品牌主视觉',
@@ -58,8 +60,49 @@ function resultTitle(result: GenerateResult, userPrompt: string): string {
   return result.copy.titles[0]?.trim() || fallbackTitle(userPrompt);
 }
 
-function firstSelectedPageId(pages: readonly WorkflowPageBase[]): string | undefined {
-  return pages.find(page => page.status === 'succeeded')?.id ?? pages[0]?.id;
+/** 图鉴优先选中封面；否则选中第一张成功页。 */
+function firstSelectedPageId(result: GenerateResult): string | undefined {
+  if (result.workflowId === 'xhs-atlas') {
+    const cover = result.pages.find(page => page.role === 'cover');
+    if (cover) return cover.id;
+  }
+  return result.pages.find(page => page.status === 'succeeded')?.id ?? result.pages[0]?.id;
+}
+
+/** 复制按钮：自带成功/失败反馈，工作流文案面板复用。 */
+export function CopyButton({label, value}: {label: string; value: string}) {
+  const [feedback, setFeedback] = useState<{kind: 'success' | 'error'; message: string}>();
+  const feedbackTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => {
+    if (feedbackTimerRef.current !== undefined) window.clearTimeout(feedbackTimerRef.current);
+  }, []);
+
+  async function handleCopy() {
+    const copyResult = await copyText(value);
+    if (feedbackTimerRef.current !== undefined) window.clearTimeout(feedbackTimerRef.current);
+    setFeedback(copyResult.ok
+      ? {kind: 'success', message: '已复制'}
+      : {kind: 'error', message: copyResult.message});
+    feedbackTimerRef.current = window.setTimeout(() => setFeedback(undefined), 1800);
+  }
+
+  return (
+    <div className="result-detail__copy-action">
+      <Button aria-label={`复制${label}`} onClick={() => void handleCopy()} variant="ghost">
+        <Copy aria-hidden="true" size={17} weight="bold" />
+        复制
+      </Button>
+      {feedback ? (
+        <span
+          className={`result-detail__feedback result-detail__feedback--${feedback.kind}`}
+          role={feedback.kind === 'error' ? 'alert' : 'status'}
+        >
+          {feedback.message}
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function StatusSummary({result}: {result: GenerateResult}) {
@@ -79,9 +122,9 @@ export function ResultDetail({
   onRegenerate,
 }: ResultDetailProps) {
   const template = TEMPLATE_CONFIGS_BY_ID.get(result.workflowId);
-  const [selectedPageId, setSelectedPageId] = useState(() => firstSelectedPageId(result.pages));
+  const [selectedPageId, setSelectedPageId] = useState(() => firstSelectedPageId(result));
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [feedback, setFeedback] = useState<Feedback>();
+  const [feedback, setFeedback] = useState<DownloadFeedback>();
   const [unavailableImageIds, setUnavailableImageIds] = useState<Set<string>>(() => new Set());
   const feedbackTimerRef = useRef<number | undefined>(undefined);
   const previewTriggerRef = useRef<HTMLElement>(null);
@@ -97,7 +140,7 @@ export function ResultDetail({
   const [lastRequestId, setLastRequestId] = useState(result.requestId);
   if (lastRequestId !== result.requestId) {
     setLastRequestId(result.requestId);
-    setSelectedPageId(firstSelectedPageId(result.pages));
+    setSelectedPageId(firstSelectedPageId(result));
     setPreviewOpen(false);
     setUnavailableImageIds(new Set());
   }
@@ -106,17 +149,10 @@ export function ResultDetail({
     if (feedbackTimerRef.current !== undefined) window.clearTimeout(feedbackTimerRef.current);
   }, []);
 
-  function showFeedback(nextFeedback: NonNullable<Feedback>) {
+  function showFeedback(nextFeedback: NonNullable<DownloadFeedback>) {
     if (feedbackTimerRef.current !== undefined) window.clearTimeout(feedbackTimerRef.current);
     setFeedback(nextFeedback);
     feedbackTimerRef.current = window.setTimeout(() => setFeedback(undefined), 1800);
-  }
-
-  async function handleCopy(target: CopyTarget, value: string) {
-    const copyResult = await copyText(value);
-    showFeedback(copyResult.ok
-      ? {target, kind: 'success', message: '已复制'}
-      : {target, kind: 'error', message: copyResult.message});
   }
 
   async function handleDownloadPage(page: WorkflowPageBase) {
@@ -144,18 +180,6 @@ export function ResultDetail({
     previewTriggerRef.current = event.currentTarget;
     setPreviewOpen(true);
   }
-
-  const copyAction = (target: CopyTarget, label: string, value: string) => (
-    <div className="result-detail__copy-action">
-      <Button aria-label={`复制${label}`} onClick={() => void handleCopy(target, value)} variant="ghost">
-        <Copy aria-hidden="true" size={17} weight="bold" />
-        复制
-      </Button>
-      {feedback?.target === target ? (
-        <span className={`result-detail__feedback result-detail__feedback--${feedback.kind}`} role={feedback.kind === 'error' ? 'alert' : 'status'}>{feedback.message}</span>
-      ) : null}
-    </div>
-  );
 
   return (
     <section aria-labelledby="result-detail-title" className="result-detail">
@@ -262,31 +286,11 @@ export function ResultDetail({
           )}
         </section>
 
-        <aside aria-label="生成文案" className="result-detail__copy">
-          <section>
-            <div className="result-detail__copy-heading">
-              <h2>标题</h2>
-              {copyAction('title', '标题', title)}
-            </div>
-            <p className="result-detail__copy-title">{title}</p>
-          </section>
-          <section>
-            <div className="result-detail__copy-heading">
-              <h2>正文</h2>
-              {copyAction('body', '正文', result.copy.body)}
-            </div>
-            <p className="result-detail__copy-body">{result.copy.body}</p>
-          </section>
-          <section>
-            <div className="result-detail__copy-heading">
-              <h2>标签</h2>
-              {copyAction('tags', '标签', result.copy.tags.join(' '))}
-            </div>
-            <div className="result-detail__tags">
-              {result.copy.tags.map((tag, index) => <span className="result-detail__tag" key={`${tag}-${index}`}>{tag}</span>)}
-            </div>
-          </section>
-        </aside>
+        {result.workflowId === 'original-ip' ? (
+          <OriginalIpResultPanel result={result} />
+        ) : (
+          <XhsAtlasResultPanel result={result} />
+        )}
       </div>
 
       <ImagePreviewDialog

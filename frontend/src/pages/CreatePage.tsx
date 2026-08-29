@@ -1,5 +1,5 @@
 import {ArrowLeft, ImageSquare} from '@phosphor-icons/react';
-import {useCallback, useState} from 'react';
+import {useCallback, useMemo, useState} from 'react';
 import {Link, useLocation, useNavigate, useParams} from 'react-router-dom';
 import {TEMPLATE_CONFIGS_BY_ID, type TemplateConfig} from '../config/templates';
 import {WorkflowCreateRouter} from '../features/create/WorkflowCreateRouter';
@@ -10,12 +10,32 @@ import {
   type WorkflowSaveInput,
 } from '../features/create/types';
 import {historyRepository} from '../features/history/historyRepository';
+import {type RestoredFile} from '../features/history/historyTypes';
 import {captureHistoryRecord} from '../features/history/resultMaterializer';
 import {TemplatePreview} from '../features/templates/TemplatePreview';
 
 type CreateLocationState = {
   initialPrompt?: unknown;
+  restoredFiles?: unknown;
 };
+
+/** 路由 state 来自历史页跳转；仅接受形状合法的恢复文件，其余忽略。 */
+function parseRestoredFiles(value: unknown): File[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    if (
+      typeof item !== 'object'
+      || item === null
+      || typeof (item as RestoredFile).name !== 'string'
+      || typeof (item as RestoredFile).mediaType !== 'string'
+      || !((item as RestoredFile).blob instanceof Blob)
+    ) {
+      return [];
+    }
+    const {name, mediaType, blob} = item as RestoredFile;
+    return [new File([blob], name, {type: mediaType})];
+  });
+}
 
 function TemplateGuide({template}: {template: TemplateConfig}) {
   return (
@@ -67,6 +87,7 @@ export function CreatePage() {
   const initialPrompt = typeof locationState?.initialPrompt === 'string'
     ? locationState.initialPrompt
     : undefined;
+  const initialFiles = useMemo(() => parseRestoredFiles(locationState?.restoredFiles), [locationState?.restoredFiles]);
   const isBusy = isActivePhase(phase);
 
   const saveResult = useCallback(async (input: WorkflowSaveInput) => {
@@ -129,6 +150,7 @@ export function CreatePage() {
       <div className="create-page__layout">
         <div className="create-page__form-column">
           <WorkflowCreateRouter
+            initialFiles={initialFiles}
             initialPrompt={initialPrompt}
             key={template.id}
             onComplete={handleComplete}
