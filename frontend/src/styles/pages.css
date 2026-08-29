@@ -311,7 +311,7 @@
 }
 
 .template-card__heading p,
-.template-card__details p,
+.template-card__details dd,
 .template-card__compact-summary {
   margin-bottom: 0;
   color: var(--color-ink-500);
@@ -320,16 +320,19 @@
 .template-card__details {
   display: grid;
   gap: var(--space-4);
+  margin: 0;
 }
 
-.template-card__details h3 {
+.template-card__details dt {
   margin: 0 0 var(--space-1);
   color: var(--color-ink-700);
   font-size: 13px;
+  font-weight: 600;
   line-height: 20px;
 }
 
-.template-card__details p {
+.template-card__details dd {
+  margin-left: 0;
   font-size: 13px;
   line-height: 20px;
 }

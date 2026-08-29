@@ -41,20 +41,20 @@ export function TemplateCard({template, compact = false, headingLevel = 2}: Temp
           <p>{template.description}</p>
         </div>
 
-        <div className="template-card__details">
+        <dl className="template-card__details">
           <div>
-            <h3>适用场景</h3>
-            <p>{template.suitableFor.join('、')}</p>
+            <dt>适用场景</dt>
+            <dd>{template.suitableFor.join('、')}</dd>
           </div>
           <div>
-            <h3>输出内容</h3>
-            <p>生成标题、正文、标签和按需求动态组织的图片页面。</p>
+            <dt>输出内容</dt>
+            <dd>生成标题、正文、标签和按需求动态组织的图片页面。</dd>
           </div>
           <div>
-            <h3>参考图片</h3>
-            <p>{template.referenceAdvice}</p>
+            <dt>参考图片</dt>
+            <dd>{template.referenceAdvice}</dd>
           </div>
-        </div>
+        </dl>
 
         <p className="template-card__compact-summary">
           动态组织图片页面，可选上传参考图
