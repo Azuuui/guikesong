@@ -2,6 +2,16 @@ import {ApiError} from '../http/apiError';
 
 export const TEXT_TIMEOUT_MS = 30_000;
 export const IMAGE_TIMEOUT_MS = 180_000;
+export const SEARCH_TIMEOUT_MS = 30_000;
+export const MAX_SEARCH_RESULT_COUNT = 50;
+export const DEFAULT_SEARCH_RESULT_COUNT = 8;
+
+/** 把搜索结果条数钳制到 1～50；缺省 8，非法值按 1 处理。 */
+export function clampSearchCount(count: number | undefined): number {
+  const value = count ?? DEFAULT_SEARCH_RESULT_COUNT;
+  if (!Number.isFinite(value) || value < 1) return 1;
+  return Math.min(Math.floor(value), MAX_SEARCH_RESULT_COUNT);
+}
 
 export function isHttpTimeoutError(error: unknown): boolean {
   return (

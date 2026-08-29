@@ -216,6 +216,11 @@ function createHarness(options: HarnessOptions = {}) {
         }),
       },
       image,
+      search: {
+        search: vi.fn(async () => {
+          throw new Error('图鉴工作流不应调用搜索 Provider');
+        }),
+      },
     },
     loadReferenceImage: vi.fn(async (assetId: string) =>
       `data:image/png;base64,${Buffer.from(`ref:${assetId}`).toString('base64')}`,

@@ -240,7 +240,16 @@ function createHarness(options: HarnessOptions = {}) {
   };
 
   const deps = {
-    providers: {text, vision, image},
+    providers: {
+      text,
+      vision,
+      image,
+      search: {
+        search: vi.fn(async () => {
+          throw new Error('原创 IP 工作流不应调用搜索 Provider');
+        }),
+      },
+    },
     loadIpProfile: vi.fn(async () =>
       options.profile === undefined ? LOCKED_PROFILE : options.profile,
     ),

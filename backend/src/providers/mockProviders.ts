@@ -5,11 +5,15 @@ import type {
   ImageEditRequest,
   ImageGenerationRequest,
   ImageProvider,
+  SearchProvider,
   TextJsonRequest,
   TextProvider,
   VisionJsonRequest,
   VisionProvider,
+  WebSearchOutcome,
+  WebSearchRequest,
 } from './contracts';
+import {clampSearchCount} from './upstream';
 
 function fixtureOrThrow(fixtures: Record<string, unknown>, fixtureKey: string | undefined): unknown {
   if (fixtureKey === undefined || !(fixtureKey in fixtures)) {
@@ -33,6 +37,16 @@ export class MockVisionProvider implements VisionProvider {
 
   async generateJsonFromImages(request: VisionJsonRequest): Promise<unknown> {
     return structuredClone(fixtureOrThrow(this.fixtures, request.fixtureKey));
+  }
+}
+
+/** Mock 搜索 Provider：按 fixtureKey 返回深拷贝预置结果，并按 count 截断。 */
+export class MockSearchProvider implements SearchProvider {
+  constructor(private readonly fixtures: Record<string, WebSearchOutcome> = {}) {}
+
+  async search(request: WebSearchRequest): Promise<WebSearchOutcome> {
+    const fixture = fixtureOrThrow(this.fixtures, request.fixtureKey) as WebSearchOutcome;
+    return {results: structuredClone(fixture.results).slice(0, clampSearchCount(request.count))};
   }
 }
 

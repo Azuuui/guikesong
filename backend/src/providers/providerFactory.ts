@@ -1,10 +1,16 @@
 import {loadProviderSecrets} from '../config/env';
-import {MockImageProvider, MockTextProvider, MockVisionProvider} from './mockProviders';
+import {
+  MockImageProvider,
+  MockSearchProvider,
+  MockTextProvider,
+  MockVisionProvider,
+} from './mockProviders';
 import {RelayImageProvider} from './relayImageProvider';
 import {RelayVisionProvider} from './relayVisionProvider';
 import type {FetchLike} from '../http/fetchWithTimeout';
 import type {MockFixtures, ProviderBundle} from './contracts';
 import type {ProviderSecrets} from '../config/env';
+import {ZhipuSearchProvider} from './zhipuSearchProvider';
 import {ZhipuTextProvider} from './zhipuTextProvider';
 
 export interface ProviderFactoryConfig {
@@ -25,6 +31,7 @@ export function createProviders(config: ProviderFactoryConfig): ProviderBundle {
       text: new MockTextProvider(config.fixtures?.text),
       vision: new MockVisionProvider(config.fixtures?.vision),
       image: new MockImageProvider(),
+      search: new MockSearchProvider(config.fixtures?.search),
     };
   }
 
@@ -46,6 +53,12 @@ export function createProviders(config: ProviderFactoryConfig): ProviderBundle {
       baseUrl: secrets.imageApiBaseUrl,
       apiKey: secrets.imageApiKey,
       model: secrets.imageModel,
+      fetchImpl: config.fetchImpl,
+    }),
+    search: new ZhipuSearchProvider({
+      baseUrl: secrets.copyApiBaseUrl,
+      apiKey: secrets.copyApiKey,
+      searchEngine: secrets.searchEngine,
       fetchImpl: config.fetchImpl,
     }),
   };

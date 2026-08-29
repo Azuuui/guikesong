@@ -3,9 +3,16 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {HttpTimeoutError} from '../http/fetchWithTimeout';
 import {fetchRemoteImage} from '../http/safeRemoteImage';
 import {createProviders} from './providerFactory';
-import {MockImageProvider, MockTextProvider, MockVisionProvider} from './mockProviders';
+import {
+  MockImageProvider,
+  MockSearchProvider,
+  MockTextProvider,
+  MockVisionProvider,
+} from './mockProviders';
 import {RelayImageProvider} from './relayImageProvider';
 import {RelayVisionProvider} from './relayVisionProvider';
+import {UnavailableSearchProvider} from './unavailableSearchProvider';
+import {ZhipuSearchProvider} from './zhipuSearchProvider';
 import {ZhipuTextProvider} from './zhipuTextProvider';
 
 const ZHIPU_CONFIG = {
@@ -105,6 +112,107 @@ describe('zhipu text provider', () => {
     const provider = new ZhipuTextProvider({...ZHIPU_CONFIG, fetchImpl: hangingFetch()});
 
     const pending = provider.generateJson({prompt: 'x'});
+    const assertion = expect(pending).rejects.toThrow('超时');
+    await vi.advanceTimersByTimeAsync(30_000);
+    await assertion;
+  });
+});
+
+describe('zhipu search provider', () => {
+  it('请求携带 search_query/search_engine/count 并过滤非法结果', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse({
+        search_result: [
+          {
+            title: '西湖游玩攻略',
+            content: '西湖位于杭州市西湖区，环湖步行约半日。',
+            link: 'https://example.com/west-lake',
+            media: '携程',
+            publish_date: '2026-08-01',
+          },
+          {title: '', content: '缺失标题', link: 'https://example.com/bad'},
+          {title: '缺内容', content: '', link: 'https://example.com/bad2'},
+        ],
+      }),
+    );
+    const provider = new ZhipuSearchProvider({...ZHIPU_CONFIG, fetchImpl});
+
+    const outcome = await provider.search({query: '杭州西湖攻略', count: 3});
+
+    expect(outcome.results).toHaveLength(1);
+    expect(outcome.results[0]).toEqual({
+      title: '西湖游玩攻略',
+      content: '西湖位于杭州市西湖区，环湖步行约半日。',
+      link: 'https://example.com/west-lake',
+      media: '携程',
+      publishDate: '2026-08-01',
+    });
+
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(String(url)).toBe('https://open.bigmodel.cn/api/paas/v4/web_search');
+    const body = JSON.parse(String(init!.body));
+    expect(body.search_query).toBe('杭州西湖攻略');
+    expect(body.search_engine).toBe('search_pro');
+    expect(body.count).toBe(3);
+    expect(String(new Headers(init!.headers).get('authorization'))).toContain('Bearer ');
+  });
+
+  it('支持自定义搜索引擎', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse({search_result: []}),
+    );
+    const provider = new ZhipuSearchProvider({...ZHIPU_CONFIG, fetchImpl, searchEngine: 'search_std'});
+
+    await provider.search({query: 'x'});
+
+    const [, init] = fetchImpl.mock.calls[0]!;
+    expect(JSON.parse(String(init!.body)).search_engine).toBe('search_std');
+  });
+
+  it('count 缺省为 8、超过 50 钳制为 50', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse({search_result: []}),
+    );
+    const provider = new ZhipuSearchProvider({...ZHIPU_CONFIG, fetchImpl});
+
+    await provider.search({query: 'x'});
+    await provider.search({query: 'x', count: 99});
+
+    const bodies = fetchImpl.mock.calls.map(([, init]) => JSON.parse(String(init!.body)));
+    expect(bodies[0]!.count).toBe(8);
+    expect(bodies[1]!.count).toBe(50);
+  });
+
+  it('429 与 5xx 返回安全错误且不泄露密钥或上游正文', async () => {
+    for (const status of [429, 500]) {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({error: {message: 'UPSTREAM-SECRET test-key detail'}}, status),
+      );
+      const provider = new ZhipuSearchProvider({...ZHIPU_CONFIG, fetchImpl});
+
+      const error = await provider.search({query: 'x'}).then(
+        () => undefined,
+        (e: Error) => e,
+      );
+      expect(error).toBeInstanceOf(Error);
+      const message = error!.message;
+      expect(message).not.toContain('test-key');
+      expect(message).not.toContain('UPSTREAM-SECRET');
+      expect(message).not.toContain('Bearer');
+    }
+  });
+
+  it('search_result 缺失时返回安全错误', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({}));
+    const provider = new ZhipuSearchProvider({...ZHIPU_CONFIG, fetchImpl});
+    await expect(provider.search({query: 'x'})).rejects.toThrow('搜索服务返回了无法解析的内容');
+  });
+
+  it('搜索请求 30 秒超时', async () => {
+    vi.useFakeTimers();
+    const provider = new ZhipuSearchProvider({...ZHIPU_CONFIG, fetchImpl: hangingFetch()});
+
+    const pending = provider.search({query: 'x'});
     const assertion = expect(pending).rejects.toThrow('超时');
     await vi.advanceTimersByTimeAsync(30_000);
     await assertion;
@@ -312,6 +420,39 @@ describe('mock providers', () => {
     ).resolves.toEqual({ok: true});
   });
 
+  it('搜索 Mock 按 fixtureKey 返回深拷贝并按 count 截断', async () => {
+    const rawFixture = {
+      results: [
+        {title: '结果一', content: '内容一', link: 'https://example.com/1'},
+        {title: '结果二', content: '内容二', link: 'https://example.com/2'},
+        {title: '结果三', content: '内容三', link: 'https://example.com/3'},
+      ],
+    };
+    const provider = new MockSearchProvider({'demo.search': rawFixture});
+
+    const first = await provider.search({query: 'x', count: 2, fixtureKey: 'demo.search'});
+    const second = await provider.search({query: 'x', fixtureKey: 'demo.search'});
+
+    expect(first.results.map(item => item.title)).toEqual(['结果一', '结果二']);
+    expect(second.results.map(item => item.title)).toEqual(['结果一', '结果二', '结果三']);
+
+    rawFixture.results[0]!.title = '污染源数据';
+    expect(first.results[0]!.title).toBe('结果一');
+
+    await expect(provider.search({query: 'x', fixtureKey: 'missing'})).rejects.toThrow('Mock');
+  });
+
+  it('Unavailable 搜索抛 SEARCH_UNAVAILABLE 业务错误', async () => {
+    const provider = new UnavailableSearchProvider();
+    const error = await provider.search({query: 'x'}).then(
+      () => undefined,
+      (e: {message: string; code?: unknown; status?: unknown}) => e,
+    );
+    expect(error?.message).toBe('搜索服务未配置');
+    expect(error?.code).toBe('SEARCH_UNAVAILABLE');
+    expect(error?.status).toBe(503);
+  });
+
   it('图片 Mock 确定性输出 PNG 且不触网', async () => {
     const provider = new MockImageProvider();
     const a = await provider.generate({prompt: '封面', size: '1024x1024'});
@@ -334,6 +475,7 @@ describe('provider factory', () => {
     expect(bundle.text).toBeInstanceOf(MockTextProvider);
     expect(bundle.vision).toBeInstanceOf(MockVisionProvider);
     expect(bundle.image).toBeInstanceOf(MockImageProvider);
+    expect(bundle.search).toBeInstanceOf(MockSearchProvider);
   });
 
   it('real 模式返回真实 Provider', () => {
@@ -348,11 +490,13 @@ describe('provider factory', () => {
         imageApiKey: 'k',
         imageModel: 'gpt-image-2',
         visionModel: 'gpt-image-2',
+        searchEngine: 'search_pro',
       },
     });
     expect(bundle.text).toBeInstanceOf(ZhipuTextProvider);
     expect(bundle.vision).toBeInstanceOf(RelayVisionProvider);
     expect(bundle.image).toBeInstanceOf(RelayImageProvider);
+    expect(bundle.search).toBeInstanceOf(ZhipuSearchProvider);
   });
 });
 

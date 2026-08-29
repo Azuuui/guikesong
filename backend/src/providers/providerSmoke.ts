@@ -2,7 +2,7 @@
  * 真实 Provider 能力探测脚本。
  * 只输出：模型名、能力名、成功/失败、HTTP 状态和安全错误码。
  * 禁止输出请求头、环境变量、图片 Base64 或完整上游响应。
- * 顺序：智谱最小 JSON → 中转站视觉 JSON → gpt-image-2 最小生成 → 两张 1×1 图 edits。
+ * 顺序：智谱最小 JSON → 智谱 web 搜索 → 中转站视觉 JSON → gpt-image-2 最小生成 → 两张 1×1 图 edits。
  */
 import 'dotenv/config';
 import {loadProviderSecrets, loadPublicConfig} from '../config/env';
@@ -71,6 +71,20 @@ async function main(): Promise<void> {
     await runStep('智谱最小 JSON', secrets.copyModel, async () => {
       const json = await providers.text.generateJson({prompt: '只返回 JSON：{"ok": true}'});
       await assertJsonShape(json);
+    }),
+  );
+
+  results.push(
+    await runStep('智谱 web 搜索', secrets.searchEngine, async () => {
+      const outcome = await providers.search.search({query: '杭州 西湖 旅游攻略', count: 3});
+      if (outcome.results.length === 0) {
+        throw new Error('搜索未返回任何结果');
+      }
+      for (const item of outcome.results) {
+        if (!item.title || !item.link) {
+          throw new Error('搜索结果缺少标题或链接');
+        }
+      }
     }),
   );
 

@@ -28,6 +28,8 @@ export interface ProviderSecrets {
   readonly imageApiKey: string;
   readonly imageModel: string;
   readonly visionModel: string;
+  /** 智谱搜索使用的引擎标识，如 search_pro。 */
+  readonly searchEngine: string;
 }
 
 const providerSecretsSchema = z.object({
@@ -39,6 +41,7 @@ const providerSecretsSchema = z.object({
   IMAGE_API_KEY: apiKeySchema,
   IMAGE_MODEL: z.string().default('gpt-image-2'),
   VISION_MODEL: z.string().default('gpt-image-2'),
+  SEARCH_ENGINE: z.string().default('search_pro'),
 });
 
 /**
@@ -55,6 +58,7 @@ export function loadProviderSecrets(): ProviderSecrets {
     IMAGE_API_KEY: process.env.IMAGE_API_KEY,
     IMAGE_MODEL: process.env.IMAGE_MODEL,
     VISION_MODEL: process.env.VISION_MODEL,
+    SEARCH_ENGINE: process.env.SEARCH_ENGINE,
   });
   return {
     copyApiBaseUrl: raw.COPY_API_BASE_URL,
@@ -65,5 +69,6 @@ export function loadProviderSecrets(): ProviderSecrets {
     imageApiKey: raw.IMAGE_API_KEY,
     imageModel: raw.IMAGE_MODEL,
     visionModel: raw.VISION_MODEL,
+    searchEngine: raw.SEARCH_ENGINE,
   };
 }
