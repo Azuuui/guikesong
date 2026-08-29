@@ -1,5 +1,6 @@
 import {createBrowserRouter} from 'react-router-dom';
 import {DashboardPage} from '../pages/DashboardPage';
+import {CreatePage} from '../pages/CreatePage';
 import {TemplatesPage} from '../pages/TemplatesPage';
 import {AppShell} from './AppShell';
 
@@ -43,7 +44,7 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: ROUTES.create,
-        element: <TemporaryPage title="模板创建" description="填写需求并添加可选参考图。" />,
+        element: <CreatePage />,
       },
       {
         path: ROUTES.result,
