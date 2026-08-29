@@ -45,21 +45,31 @@ function cloneResult(result:GenerateResult):GenerateResult{
       warnings:[...result.warnings],
     };
   }
-  return {
+  if(result.workflowId==='xhs-atlas'){
+    return {
+      ...result,
+      copy:{...result.copy,titles:[...result.copy.titles],tags:[...result.copy.tags]},
+      list:{
+        meta:{
+          ...result.list.meta,
+          fieldLabels:[...result.list.meta.fieldLabels],
+          pageSlogans:[...result.list.meta.pageSlogans],
+        },
+        cover:{...result.list.cover},
+        items:result.list.items.map(item=>({...item})),
+      },
+      pages:result.pages.map(page=>({...page})),
+      warnings:[...result.warnings],
+    };
+  }
+  // travel-guide / ugc-photo-campaign：Phase I 接入历史前的保守深拷贝。
+  const cloned={
     ...result,
     copy:{...result.copy,titles:[...result.copy.titles],tags:[...result.copy.tags]},
-    list:{
-      meta:{
-        ...result.list.meta,
-        fieldLabels:[...result.list.meta.fieldLabels],
-        pageSlogans:[...result.list.meta.pageSlogans],
-      },
-      cover:{...result.list.cover},
-      items:result.list.items.map(item=>({...item})),
-    },
     pages:result.pages.map(page=>({...page})),
     warnings:[...result.warnings],
   };
+  return cloned as typeof result;
 }
 
 async function capturePageBlob(
@@ -180,6 +190,10 @@ export async function captureHistoryRecord({
   if(resultSnapshot.workflowId==='original-ip'&&!referenceFilesSnapshot[0]){
     throw new HistorySaveError('原创 IP 结果缺少产品图，无法保存本机历史。');
   }
+  // travel-guide / ugc-photo-campaign 的历史结构在 Phase I 接入。
+  if(resultSnapshot.workflowId!=='original-ip'&&resultSnapshot.workflowId!=='xhs-atlas'){
+    throw new HistorySaveError('该工作流暂不支持保存到本机历史。');
+  }
   const captureController=new AbortController();
   let totalBytes=0;
   const consumeBytes=(bytes:number)=>{
@@ -226,24 +240,22 @@ export async function captureHistoryRecord({
   }
 }
 
-function withBlobUrls<TPage extends WorkflowPageBase>(
-  pages:TPage[],
+function withBlobUrl<TPage extends WorkflowPageBase>(
+  page:TPage,
   blobsByPageId:Map<string,StoredPageBlob>,
   objectUrlApi:ObjectUrlApi,
   objectUrls:string[],
-):TPage[]{
-  return pages.map(page=>{
-    if(page.status!=='succeeded'){
-      return page;
-    }
-    const stored=blobsByPageId.get(page.id);
-    if(!stored){
-      return page;
-    }
-    const imageUrl=objectUrlApi.createObjectURL(stored.blob);
-    objectUrls.push(imageUrl);
-    return {...page,imageUrl};
-  });
+):TPage{
+  if(page.status!=='succeeded'){
+    return page;
+  }
+  const stored=blobsByPageId.get(page.id);
+  if(!stored){
+    return page;
+  }
+  const imageUrl=objectUrlApi.createObjectURL(stored.blob);
+  objectUrls.push(imageUrl);
+  return {...page,imageUrl};
 }
 
 export function materializeHistoryResult(
@@ -255,11 +267,9 @@ export function materializeHistoryResult(
 
   try{
     const result=cloneResult(record.result);
-    if(result.workflowId==='original-ip'){
-      result.pages=withBlobUrls(result.pages,blobsByPageId,objectUrlApi,objectUrls);
-    }else{
-      result.pages=withBlobUrls(result.pages,blobsByPageId,objectUrlApi,objectUrls);
-    }
+    result.pages=result.pages.map(page=>
+      withBlobUrl(page,blobsByPageId,objectUrlApi,objectUrls),
+    ) as typeof result.pages;
 
     let revoked=false;
     return {

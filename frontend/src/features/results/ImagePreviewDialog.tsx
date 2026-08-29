@@ -2,17 +2,22 @@ import {ArrowLeft, ArrowRight, DownloadSimple, X} from '@phosphor-icons/react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import type {RefObject} from 'react';
 import type {
-  OriginalIpPage,
   OriginalIpPageRole,
-  XhsAtlasPage,
+  TravelGuidePageRole,
+  UgcPhotoCampaignPageRole,
+  WorkflowPageBase,
   XhsAtlasPageRole,
 } from '../../../../shared/types';
 import {Button} from '../../components/Button';
 import {DownloadError, downloadPage} from '../generation/downloads';
 
+type PreviewPage = WorkflowPageBase & {
+  role: OriginalIpPageRole | XhsAtlasPageRole | TravelGuidePageRole | UgcPhotoCampaignPageRole;
+};
+
 type ImagePreviewDialogProps = {
   isOpen: boolean;
-  pages: readonly (OriginalIpPage | XhsAtlasPage)[];
+  pages: readonly PreviewPage[];
   selectedPageId: string | undefined;
   onClose: () => void;
   onImageUnavailable: (pageId: string) => void;
@@ -20,7 +25,10 @@ type ImagePreviewDialogProps = {
   returnFocusRef: RefObject<HTMLElement | null>;
 };
 
-const PAGE_ROLE_LABELS: Record<OriginalIpPageRole | XhsAtlasPageRole, string> = {
+const PAGE_ROLE_LABELS: Record<
+  OriginalIpPageRole | XhsAtlasPageRole | TravelGuidePageRole | UgcPhotoCampaignPageRole,
+  string
+> = {
   'brand-cover': '品牌主视觉',
   'identity-system': '识别系统',
   'product-system': '商品包装',
@@ -28,6 +36,11 @@ const PAGE_ROLE_LABELS: Record<OriginalIpPageRole | XhsAtlasPageRole, string> = 
   overview: '总览图',
   cover: '封面',
   content: '正文页',
+  route: '路线页',
+  transport: '交通页',
+  stay: '住宿页',
+  food: '美食页',
+  poster: '海报',
 };
 
 function canHandleArrowKey(target: EventTarget | null): boolean {

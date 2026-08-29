@@ -130,6 +130,9 @@ export function makeGenerateResult(options:MakeResultOptions & {workflowId?:'ori
 export function makeHistoryRecord(index=0,result:GenerateResult=makeOriginalIpResult()):HistoryRecord{
   const id=`request-${index}`;
   const createdAt=new Date(Date.UTC(2026,7,29,5,index)).toISOString();
+  if(result.workflowId!=='original-ip'&&result.workflowId!=='xhs-atlas'){
+    throw new Error('历史夹具仅支持已上线工作流');
+  }
   if(result.workflowId==='original-ip'){
     return {
       id,

@@ -19,8 +19,8 @@ function legacyContractsValue(): LegacyContracts | undefined {
 }
 
 describe('共享契约', () => {
-  it('只暴露双工作流 ID，旧四模板合同不再公开', () => {
-    expect([...WORKFLOW_IDS]).toEqual(['original-ip', 'xhs-atlas']);
+  it('只暴露四工作流 ID，旧四模板合同不再公开', () => {
+    expect([...WORKFLOW_IDS]).toEqual(['original-ip', 'xhs-atlas', 'travel-guide', 'ugc-photo-campaign']);
     expect(legacyContractsValue()).toBeUndefined();
 
     const exportedNames = Object.keys(contractsModule);

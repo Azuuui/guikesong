@@ -76,7 +76,105 @@ describe('parseGenerateRequest', () => {
     expect(() => parseGenerateRequest(null)).toThrow('未知工作流');
   });
 
-  it('只暴露两个工作流 ID', () => {
-    expect([...WORKFLOW_IDS]).toEqual(['original-ip', 'xhs-atlas']);
+  it('只暴露四个工作流 ID', () => {
+    expect([...WORKFLOW_IDS]).toEqual(['original-ip', 'xhs-atlas', 'travel-guide', 'ugc-photo-campaign']);
+  });
+});
+
+describe('parseGenerateRequest: travel-guide', () => {
+  it('解析合法的目的地请求（城市 / 景点 / 城市+景点）', () => {
+    expect(parseGenerateRequest({workflowId: 'travel-guide', destination: '成都'}))
+      .toMatchObject({workflowId: 'travel-guide', destination: '成都'});
+    expect(parseGenerateRequest({workflowId: 'travel-guide', destination: ' 故宫 '}))
+      .toMatchObject({destination: '故宫'});
+    expect(parseGenerateRequest({workflowId: 'travel-guide', destination: '杭州西湖'}))
+      .toMatchObject({destination: '杭州西湖'});
+  });
+
+  it('空目的地与超长目的地报错', () => {
+    expect(() => parseGenerateRequest({workflowId: 'travel-guide', destination: '  '}))
+      .toThrow('请输入目的地');
+    expect(() => parseGenerateRequest({workflowId: 'travel-guide', destination: '超'.repeat(31)}))
+      .toThrow('目的地不超过 30 字');
+  });
+
+  it('范围过大的目的地报错（国家 / 大区 / 星球）', () => {
+    for (const destination of ['中国', '全国', '世界', '亚洲', '地球', '宇宙']) {
+      expect(() => parseGenerateRequest({workflowId: 'travel-guide', destination}))
+        .toThrow('目的地范围过大');
+    }
+  });
+
+  it('纯数字／符号显然不是地点', () => {
+    expect(() => parseGenerateRequest({workflowId: 'travel-guide', destination: '12345'}))
+      .toThrow('请输入一个具体的目的地');
+    expect(() => parseGenerateRequest({workflowId: 'travel-guide', destination: '!!! ???'}))
+      .toThrow('请输入一个具体的目的地');
+  });
+
+  it('额外字段被拒绝', () => {
+    expect(() => parseGenerateRequest({
+      workflowId: 'travel-guide',
+      destination: '成都',
+      referenceAssetIds: [],
+    })).toThrow('未知字段');
+  });
+});
+
+describe('parseGenerateRequest: ugc-photo-campaign', () => {
+  it('解析合法请求：照片必填，主题与昵称可选', () => {
+    expect(parseGenerateRequest({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1', 'asset-2'],
+    })).toMatchObject({workflowId: 'ugc-photo-campaign', photoAssetIds: ['asset-1', 'asset-2']});
+
+    expect(parseGenerateRequest({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1', 'asset-2'],
+      campaignTheme: '夏日出游摄影征集',
+      photoCredits: ['@山间清风', ''],
+    })).toMatchObject({
+      campaignTheme: '夏日出游摄影征集',
+      photoCredits: ['@山间清风', ''],
+    });
+  });
+
+  it('空主题规范化为 undefined', () => {
+    const parsed = parseGenerateRequest({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1'],
+      campaignTheme: '   ',
+    }) as {campaignTheme?: string};
+    expect(parsed.campaignTheme).toBeUndefined();
+  });
+
+  it('照片数量必须为 1～7 张', () => {
+    expect(() => parseGenerateRequest({workflowId: 'ugc-photo-campaign', photoAssetIds: []}))
+      .toThrow('请上传 1～7 张投稿照片');
+    expect(() => parseGenerateRequest({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: Array.from({length: 8}, (_, index) => `asset-${index + 1}`),
+    })).toThrow('投稿照片最多 7 张');
+  });
+
+  it('昵称数量需与照片数量一致', () => {
+    expect(() => parseGenerateRequest({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1', 'asset-2'],
+      photoCredits: ['@只有一张'],
+    })).toThrow('投稿昵称数量需与照片数量一致');
+  });
+
+  it('主题与昵称超长报错', () => {
+    expect(() => parseGenerateRequest({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1'],
+      campaignTheme: '夏'.repeat(51),
+    })).toThrow('活动主题不超过 50 字');
+    expect(() => parseGenerateRequest({
+      workflowId: 'ugc-photo-campaign',
+      photoAssetIds: ['asset-1'],
+      photoCredits: ['@'.repeat(31)],
+    })).toThrow('投稿昵称不超过 30 字');
   });
 });

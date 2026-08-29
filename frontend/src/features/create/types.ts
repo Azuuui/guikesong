@@ -1,4 +1,4 @@
-import type {GenerateResult, ReferenceAsset} from '../../../../shared/types';
+import type {GenerateResult, ReferenceAsset, WorkflowId} from '../../../../shared/types';
 
 export type CreatePhase = 'idle' | 'validating' | 'uploading' | 'generating' | 'saving' | 'error';
 
@@ -9,7 +9,7 @@ export interface StoredReferenceFileInput {
 
 /** 历史保存入参：原创 IP 传产品图，图鉴传参考图。 */
 export interface WorkflowSaveInput {
-  workflowId: 'original-ip' | 'xhs-atlas';
+  workflowId: WorkflowId;
   result: GenerateResult;
   /** 用户一句话输入：原创 IP 为产品描述，图鉴为选题。 */
   userPrompt: string;

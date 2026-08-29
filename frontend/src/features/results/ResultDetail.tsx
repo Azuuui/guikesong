@@ -11,6 +11,8 @@ import {useEffect, useMemo, useRef, useState, type MouseEvent} from 'react';
 import type {
   GenerateResult,
   OriginalIpPageRole,
+  TravelGuidePageRole,
+  UgcPhotoCampaignPageRole,
   WorkflowPageBase,
   XhsAtlasPageRole,
 } from '../../../../shared/types';
@@ -36,7 +38,10 @@ export type ResultDetailProps = {
 type DownloadTarget = 'page' | 'package';
 type DownloadFeedback = {target: DownloadTarget; message: string; kind: 'success' | 'error'} | undefined;
 
-const PAGE_ROLE_LABELS: Record<OriginalIpPageRole | XhsAtlasPageRole, string> = {
+const PAGE_ROLE_LABELS: Record<
+  OriginalIpPageRole | XhsAtlasPageRole | TravelGuidePageRole | UgcPhotoCampaignPageRole,
+  string
+> = {
   'brand-cover': '品牌主视觉',
   'identity-system': '识别系统',
   'product-system': '商品包装',
@@ -44,6 +49,11 @@ const PAGE_ROLE_LABELS: Record<OriginalIpPageRole | XhsAtlasPageRole, string> = 
   overview: '总览图',
   cover: '封面',
   content: '正文页',
+  route: '路线页',
+  transport: '交通页',
+  stay: '住宿页',
+  food: '美食页',
+  poster: '海报',
 };
 
 function fallbackTitle(prompt: string): string {
@@ -288,9 +298,9 @@ export function ResultDetail({
 
         {result.workflowId === 'original-ip' ? (
           <OriginalIpResultPanel result={result} />
-        ) : (
+        ) : result.workflowId === 'xhs-atlas' ? (
           <XhsAtlasResultPanel result={result} />
-        )}
+        ) : null}
       </div>
 
       <ImagePreviewDialog
