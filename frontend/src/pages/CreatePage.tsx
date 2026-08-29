@@ -1,46 +1,31 @@
 import {ArrowLeft, ImageSquare} from '@phosphor-icons/react';
-import {useState} from 'react';
+import {useCallback, useState} from 'react';
 import {Link, useLocation, useNavigate, useParams} from 'react-router-dom';
-import type {GenerateResponse, ReferenceAsset} from '../../../shared/types';
 import {TEMPLATE_CONFIGS_BY_ID, type TemplateConfig} from '../config/templates';
+import {WorkflowCreateRouter} from '../features/create/WorkflowCreateRouter';
 import {
-  CreateForm,
-  type CreateDraft,
+  isActivePhase,
   type CreatePhase,
-} from '../features/create/CreateForm';
-import {generateMarketingAssets, uploadReferenceFiles} from '../features/generation/api';
+  type WorkflowCompletion,
+  type WorkflowSaveInput,
+} from '../features/create/types';
 import {historyRepository} from '../features/history/historyRepository';
 import {captureHistoryRecord} from '../features/history/resultMaterializer';
+import {TemplatePreview} from '../features/templates/TemplatePreview';
 
 type CreateLocationState = {
   initialPrompt?: unknown;
 };
 
-const EXPECTED_OUTPUTS: Record<TemplateConfig['id'], string> = {
-  'ip-image': '动态生成活动主视觉、宣传标题、正文与传播标签。',
-  'travel-cards': '动态生成完整攻略图文页面、种草文案与传播标签。',
-  'scenery-collage': '动态生成景区氛围视觉、推广文案与传播标签。',
-  'people-collage': '动态生成人物打卡视觉、社交文案与传播标签。',
-};
-
 function TemplateGuide({template}: {template: TemplateConfig}) {
-  const [previewFailed, setPreviewFailed] = useState(false);
-
   return (
     <aside aria-labelledby="template-guide-title" className="template-guide">
       <div className="template-guide__preview">
-        {previewFailed ? (
-          <span className="template-guide__preview-placeholder" role="img" aria-label="模板示例图暂不可用">
-            <ImageSquare aria-hidden="true" size={28} />
-            <span>示例图暂不可用</span>
-          </span>
-        ) : (
-          <img
-            alt={`${template.name}示例图`}
-            onError={() => setPreviewFailed(true)}
-            src={template.previewUrl}
-          />
-        )}
+        <TemplatePreview
+          description={template.description}
+          name={template.name}
+          variant={template.previewVariant}
+        />
       </div>
       <div className="template-guide__summary">
         <p>当前模板</p>
@@ -64,7 +49,7 @@ function TemplateGuide({template}: {template: TemplateConfig}) {
           </section>
           <section>
             <h3>本次输出</h3>
-            <p>{EXPECTED_OUTPUTS[template.id]}</p>
+            <p>{template.outputs}</p>
           </section>
         </div>
       </details>
@@ -82,10 +67,23 @@ export function CreatePage() {
   const initialPrompt = typeof locationState?.initialPrompt === 'string'
     ? locationState.initialPrompt
     : undefined;
-  const isBusy = phase === 'validating'
-    || phase === 'uploading'
-    || phase === 'generating'
-    || phase === 'saving';
+  const isBusy = isActivePhase(phase);
+
+  const saveResult = useCallback(async (input: WorkflowSaveInput) => {
+    const record = await captureHistoryRecord(input);
+    await historyRepository.put(record);
+  }, []);
+
+  const handleComplete = useCallback((completion: WorkflowCompletion) => {
+    navigate(`/results/${completion.requestId}`, {
+      state: {
+        result: completion.result,
+        userPrompt: completion.userPrompt,
+        createdAt: completion.createdAt,
+        historySaveWarning: completion.historySaveWarning,
+      },
+    });
+  }, [navigate]);
 
   if (!template) {
     return (
@@ -99,26 +97,6 @@ export function CreatePage() {
         </Link>
       </section>
     );
-  }
-
-  async function saveResult(
-    response: GenerateResponse,
-    draft: CreateDraft,
-    assets: ReferenceAsset[],
-    createdAt: string,
-    signal?: AbortSignal,
-  ) {
-    if (assets.length !== draft.files.length) {
-      throw new Error('参考图上传结果与本地文件不匹配');
-    }
-    const record = await captureHistoryRecord({
-      response,
-      userPrompt: draft.userPrompt,
-      createdAt,
-      signal,
-      referenceFiles: assets.map((asset, index) => ({asset, blob: draft.files[index]})),
-    });
-    await historyRepository.put(record);
   }
 
   return (
@@ -150,25 +128,13 @@ export function CreatePage() {
 
       <div className="create-page__layout">
         <div className="create-page__form-column">
-          <CreateForm
-            generate={generateMarketingAssets}
+          <WorkflowCreateRouter
             initialPrompt={initialPrompt}
             key={template.id}
-            onComplete={(requestId, historySaveWarning, response, draft, createdAt) => {
-              if (!response || !draft || !createdAt) return;
-              navigate(`/results/${requestId}`, {
-                state: {
-                  response,
-                  userPrompt: draft.userPrompt,
-                  createdAt,
-                  historySaveWarning,
-                },
-              });
-            }}
+            onComplete={handleComplete}
             onPhaseChange={setPhase}
             saveResult={saveResult}
             template={template}
-            uploadFiles={(files, signal) => uploadReferenceFiles(files, signal)}
           />
         </div>
         <TemplateGuide key={template.id} template={template} />

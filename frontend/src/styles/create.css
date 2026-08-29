@@ -143,6 +143,92 @@
   cursor: not-allowed;
 }
 
+.create-form__text-input {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-ink-900);
+  background: var(--color-surface-000);
+  border: 1px solid var(--color-border-200);
+  border-radius: var(--radius-md);
+  line-height: 22px;
+}
+
+.create-form__text-input:hover:not(:disabled) {
+  border-color: var(--color-primary-500);
+}
+
+.create-form__text-input:focus {
+  border-color: var(--color-primary-600);
+  outline: 2px solid var(--color-primary-100);
+  outline-offset: 1px;
+}
+
+.create-form__text-input[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+.create-form__text-input:disabled {
+  color: var(--color-ink-500);
+  background: var(--color-surface-100);
+  cursor: not-allowed;
+}
+
+.ip-profile-card {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-primary-050);
+  border: 1px solid var(--color-primary-100);
+  border-radius: var(--radius-md);
+}
+
+.ip-profile-card__image {
+  width: 96px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--color-surface-100);
+  border-radius: var(--radius-md);
+}
+
+.ip-profile-card__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ip-profile-card__copy {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--space-1);
+}
+
+.ip-profile-card__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-primary-700);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ip-profile-card__copy h2 {
+  margin: 0;
+  color: var(--color-ink-900);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.ip-profile-card__copy p {
+  margin: 0;
+  color: var(--color-ink-500);
+  font-size: 13px;
+  line-height: 20px;
+}
+
 .create-form__error,
 .create-form__warning {
   display: flex;
@@ -370,22 +456,6 @@
   overflow: hidden;
   background: var(--color-surface-100);
   border-bottom: 1px solid var(--color-border-100);
-}
-
-.template-guide__preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.template-guide__preview-placeholder {
-  display: flex;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: var(--space-2);
-  color: var(--color-ink-400);
 }
 
 .template-guide__summary {

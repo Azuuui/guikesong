@@ -23,12 +23,15 @@ type HistoryGroup = {
 
 function firstStoredThumbnail(record: HistoryRecord): Blob | undefined {
   const blobsByPageId = new Map(record.pageBlobs.map(page => [page.pageId, page.blob]));
-  const page = record.response.pages.find(item => item.status === 'succeeded' && blobsByPageId.has(item.id));
+  const page = record.result.pages.find(item => item.status === 'succeeded' && blobsByPageId.has(item.id));
   return page ? blobsByPageId.get(page.id) : undefined;
 }
 
 function recordTitle(record: HistoryRecord): string {
-  return record.response.copy.title.trim() || record.userPrompt.trim() || '未命名生成结果';
+  const title = record.result.workflowId === 'original-ip'
+    ? record.result.copy.title
+    : record.result.copy.titles[0] ?? '';
+  return title.trim() || record.userPrompt.trim() || '未命名生成结果';
 }
 
 function newestFirst(left: HistoryRecord, right: HistoryRecord): number {
@@ -88,10 +91,10 @@ function HistoryRow({
   const navigate = useNavigate();
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [deleteError, setDeleteError] = useState('');
-  const template = TEMPLATE_CONFIGS_BY_ID.get(record.templateId);
-  const successfulCount = record.response.pages.filter(page => page.status === 'succeeded').length;
-  const totalCount = record.response.pages.length;
-  const completed = record.response.status === 'succeeded';
+  const template = TEMPLATE_CONFIGS_BY_ID.get(record.workflowId);
+  const successfulCount = record.result.pages.filter(page => page.status === 'succeeded').length;
+  const totalCount = record.result.pages.length;
+  const completed = record.result.status === 'succeeded';
 
   async function deleteRecord() {
     setDeleteError('');
@@ -130,7 +133,7 @@ function HistoryRow({
         </summary>
         <div className="history-row__menu-content">
           <Button
-            onClick={() => navigate(`/templates/${record.templateId}/create`, {
+            onClick={() => navigate(`/templates/${record.workflowId}/create`, {
               state: {initialPrompt: record.userPrompt, regenerationNotice: '参考图片需要重新上传'},
             })}
             variant="ghost"

@@ -1,4 +1,4 @@
-import type {GenerateResponse} from '../../../../shared/types';
+import type {GenerateResult,WorkflowPageBase} from '../../../../shared/types';
 import {
   HistorySaveError,
   type HistoryRecord,
@@ -15,7 +15,7 @@ const MAX_PAGE_BLOB_BYTES=25*1024*1024;
 const MAX_TOTAL_PAGE_BLOB_BYTES=200*1024*1024;
 
 export type CaptureHistoryRecordInput={
-  response:GenerateResponse;
+  result:GenerateResult;
   userPrompt:string;
   referenceFiles:StoredReferenceFile[];
   createdAt?:string;
@@ -25,7 +25,7 @@ export type CaptureHistoryRecordInput={
 };
 
 export type MaterializedResult={
-  response:GenerateResponse;
+  result:GenerateResult;
   revoke:()=>void;
 };
 
@@ -34,17 +34,36 @@ type ObjectUrlApi={
   revokeObjectURL:(url:string)=>void;
 };
 
-function cloneResponse(response:GenerateResponse):GenerateResponse{
+/** 按工作流分支深拷贝，保证历史快照与页面状态互不影响。 */
+function cloneResult(result:GenerateResult):GenerateResult{
+  if(result.workflowId==='original-ip'){
+    return {
+      ...result,
+      copy:{...result.copy,tags:[...result.copy.tags]},
+      overview:result.overview?{...result.overview}:undefined,
+      pages:result.pages.map(page=>({...page})),
+      warnings:[...result.warnings],
+    };
+  }
   return {
-    ...response,
-    copy:{...response.copy,tags:[...response.copy.tags]},
-    pages:response.pages.map(page=>({...page})),
-    warnings:[...response.warnings],
+    ...result,
+    copy:{...result.copy,titles:[...result.copy.titles],tags:[...result.copy.tags]},
+    list:{
+      meta:{
+        ...result.list.meta,
+        fieldLabels:[...result.list.meta.fieldLabels],
+        pageSlogans:[...result.list.meta.pageSlogans],
+      },
+      cover:{...result.list.cover},
+      items:result.list.items.map(item=>({...item})),
+    },
+    pages:result.pages.map(page=>({...page})),
+    warnings:[...result.warnings],
   };
 }
 
 async function capturePageBlob(
-  page:GenerateResponse['pages'][number],
+  page:WorkflowPageBase,
   fetcher:Fetcher,
   externalSignal:AbortSignal | undefined,
   captureSignal:AbortSignal,
@@ -143,7 +162,7 @@ async function capturePageBlob(
 }
 
 export async function captureHistoryRecord({
-  response,
+  result,
   userPrompt,
   referenceFiles,
   createdAt,
@@ -152,7 +171,7 @@ export async function captureHistoryRecord({
   signal,
 }:CaptureHistoryRecordInput):Promise<HistoryRecord>{
   const savedAt=createdAt??now().toISOString();
-  const responseSnapshot=cloneResponse(response);
+  const resultSnapshot=cloneResult(result);
   const referenceFilesSnapshot=referenceFiles.map(file=>({
     asset:{...file.asset},
     blob:file.blob,
@@ -168,7 +187,7 @@ export async function captureHistoryRecord({
 
   try{
     const captured=await Promise.all(
-      responseSnapshot.pages.map(page=>capturePageBlob(
+      resultSnapshot.pages.map(page=>capturePageBlob(
         page,
         fetcher,
         signal,
@@ -177,18 +196,38 @@ export async function captureHistoryRecord({
       )),
     );
     return {
-      id:responseSnapshot.requestId,
+      id:resultSnapshot.requestId,
       createdAt:savedAt,
-      templateId:responseSnapshot.templateId,
+      workflowId:resultSnapshot.workflowId,
       userPrompt,
       referenceFiles:referenceFilesSnapshot,
-      response:responseSnapshot,
+      result:resultSnapshot,
       pageBlobs:captured.filter((page):page is StoredPageBlob=>page!==undefined),
     };
   }catch(error){
     captureController.abort(error);
     throw new HistorySaveError('生成结果可用，但图片无法保存到本机历史。',{cause:error});
   }
+}
+
+function withBlobUrls<TPage extends WorkflowPageBase>(
+  pages:TPage[],
+  blobsByPageId:Map<string,StoredPageBlob>,
+  objectUrlApi:ObjectUrlApi,
+  objectUrls:string[],
+):TPage[]{
+  return pages.map(page=>{
+    if(page.status!=='succeeded'){
+      return page;
+    }
+    const stored=blobsByPageId.get(page.id);
+    if(!stored){
+      return page;
+    }
+    const imageUrl=objectUrlApi.createObjectURL(stored.blob);
+    objectUrls.push(imageUrl);
+    return {...page,imageUrl};
+  });
 }
 
 export function materializeHistoryResult(
@@ -199,23 +238,16 @@ export function materializeHistoryResult(
   const objectUrls:string[]=[];
 
   try{
-    const response=cloneResponse(record.response);
-    response.pages=response.pages.map(page=>{
-      if(page.status!=='succeeded'){
-        return page;
-      }
-      const stored=blobsByPageId.get(page.id);
-      if(!stored){
-        return page;
-      }
-      const imageUrl=objectUrlApi.createObjectURL(stored.blob);
-      objectUrls.push(imageUrl);
-      return {...page,imageUrl};
-    });
+    const result=cloneResult(record.result);
+    if(result.workflowId==='original-ip'){
+      result.pages=withBlobUrls(result.pages,blobsByPageId,objectUrlApi,objectUrls);
+    }else{
+      result.pages=withBlobUrls(result.pages,blobsByPageId,objectUrlApi,objectUrls);
+    }
 
     let revoked=false;
     return {
-      response,
+      result,
       revoke(){
         if(revoked){
           return;

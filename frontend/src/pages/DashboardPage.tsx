@@ -31,10 +31,16 @@ function RecentTaskSkeleton() {
 
 function firstStoredThumbnail(record: HistoryRecord): Blob | undefined {
   const blobsByPageId = new Map(record.pageBlobs.map(page => [page.pageId, page.blob]));
-  const firstSuccessfulPage = record.response.pages.find(
+  const firstSuccessfulPage = record.result.pages.find(
     page => page.status === 'succeeded' && blobsByPageId.has(page.id),
   );
   return firstSuccessfulPage ? blobsByPageId.get(firstSuccessfulPage.id) : undefined;
+}
+
+function recordTitle(record: HistoryRecord): string {
+  return record.result.workflowId === 'original-ip'
+    ? record.result.copy.title
+    : record.result.copy.titles[0] ?? '';
 }
 
 function RecentTaskList({records, thumbnailUrls}: {
@@ -46,19 +52,20 @@ function RecentTaskList({records, thumbnailUrls}: {
   return (
     <div className="recent-task-list">
       {records.map(record => {
-        const template = TEMPLATE_CONFIGS_BY_ID.get(record.templateId);
-        const successfulPages = record.response.pages.filter(page => page.status === 'succeeded').length;
-        const totalPages = record.response.pages.length;
+        const template = TEMPLATE_CONFIGS_BY_ID.get(record.workflowId);
+        const successfulPages = record.result.pages.filter(page => page.status === 'succeeded').length;
+        const totalPages = record.result.pages.length;
         const thumbnailUrl = thumbnailUrls.get(record.id);
         const showThumbnail = thumbnailUrl && !failedImages.has(record.id);
-        const statusLabel = record.response.status === 'succeeded' ? '已完成' : '部分完成';
+        const statusLabel = record.result.status === 'succeeded' ? '已完成' : '部分完成';
+        const title = recordTitle(record) || record.userPrompt;
 
         return (
           <Link className="recent-task" key={record.id} to={`/history/${record.id}`}>
             <span className="recent-task__thumbnail">
               {showThumbnail ? (
                 <img
-                  alt={`${record.response.copy.title || template?.name || '生成任务'}缩略图`}
+                  alt={`${title || template?.name || '生成任务'}缩略图`}
                   onError={() => setFailedImages(current => new Set(current).add(record.id))}
                   src={thumbnailUrl}
                 />
@@ -69,10 +76,10 @@ function RecentTaskList({records, thumbnailUrls}: {
               )}
             </span>
             <span className="recent-task__body">
-              <strong>{record.response.copy.title || record.userPrompt}</strong>
+              <strong>{title}</strong>
               <span>{template?.name ?? '文旅素材'} {formatHistoryTime(record.createdAt)}</span>
             </span>
-            <span className={`recent-task__status recent-task__status--${record.response.status}`}>
+            <span className={`recent-task__status recent-task__status--${record.result.status}`}>
               <strong>{statusLabel}</strong>
               <span>{successfulPages}/{totalPages} 页成功</span>
             </span>

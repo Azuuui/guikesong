@@ -10,7 +10,7 @@ import {NotFoundPage} from './NotFoundPage';
 
 type HistoryDetailState =
   | {recordId: string; status: 'loading'}
-  | {recordId: string; status: 'ready'; record: HistoryRecord; response: ReturnType<typeof materializeHistoryResult>['response']}
+  | {recordId: string; status: 'ready'; record: HistoryRecord; result: ReturnType<typeof materializeHistoryResult>['result']}
   | {recordId: string; status: 'missing'}
   | {recordId: string; status: 'error'};
 
@@ -65,7 +65,7 @@ export function HistoryDetailPage() {
         revoke();
         return;
       }
-      setState({recordId: normalizedRecordId, status: 'ready', record, response: materialized.response});
+      setState({recordId: normalizedRecordId, status: 'ready', record, result: materialized.result});
     }).catch(() => {
       if (active) setState({recordId: normalizedRecordId, status: 'error'});
     });
@@ -112,10 +112,10 @@ export function HistoryDetailPage() {
       {deleteError ? <p className="history-detail-page__error" role="alert">{deleteError}</p> : null}
       <ResultDetail
         createdAt={state.record.createdAt}
-        onRegenerate={() => navigate(`/templates/${state.record.templateId}/create`, {
+        onRegenerate={() => navigate(`/templates/${state.record.workflowId}/create`, {
           state: {initialPrompt: state.record.userPrompt, regenerationNotice: '参考图片需要重新上传'},
         })}
-        response={state.response}
+        result={state.result}
         source="history"
         userPrompt={state.record.userPrompt}
       />

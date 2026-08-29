@@ -1,7 +1,6 @@
 import {ImageSquare, UploadSimple, X} from '@phosphor-icons/react';
 import {useEffect, useRef, useState, type ChangeEvent} from 'react';
 
-const MAX_FILES = 4;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -17,6 +16,13 @@ export type ReferenceUploaderProps = {
   disabled?: boolean;
   onFilesChange: (files: File[]) => void;
   status?: ReferenceUploadStatus;
+  /** 允许选择的最大张数；原创 IP 产品图传 1，图鉴参考图传 4。 */
+  maxFiles?: number;
+  title?: string;
+  description?: string;
+  emptyLabel?: string;
+  selectLabel?: string;
+  selectHint?: string;
 };
 
 function fileKey(file: File): string {
@@ -39,10 +45,18 @@ export function ReferenceUploader({
   disabled = false,
   onFilesChange,
   status = 'pending',
+  maxFiles = 4,
+  title = '参考图片，可选',
+  description,
+  emptyLabel = '还没有选择参考图片',
+  selectLabel = '选择参考图片',
+  selectHint = '图片会先在本机预览，生成时再上传',
 }: ReferenceUploaderProps) {
   const [entries, setEntries] = useState<PreviewEntry[]>([]);
   const [messages, setMessages] = useState<string[]>([]);
   const entriesRef = useRef<PreviewEntry[]>([]);
+
+  const helpText = description ?? `最多 ${maxFiles} 张，支持 JPG、PNG、WebP，单张不超过 10MB。`;
 
   function updateEntries(nextEntries: PreviewEntry[]) {
     entriesRef.current = nextEntries;
@@ -81,7 +95,7 @@ export function ReferenceUploader({
         duplicateNames.push(file.name);
         return;
       }
-      if (entriesRef.current.length + acceptedFiles.length >= MAX_FILES) {
+      if (entriesRef.current.length + acceptedFiles.length >= maxFiles) {
         overflowCount += 1;
         return;
       }
@@ -94,7 +108,7 @@ export function ReferenceUploader({
       nextMessages.push(`已忽略重复文件：${duplicateNames.join('、')}。`);
     }
     if (overflowCount > 0) {
-      nextMessages.push(`最多上传 4 张参考图片，已忽略 ${overflowCount} 个超出数量的文件。`);
+      nextMessages.push(`最多上传 ${maxFiles} 张图片，已忽略 ${overflowCount} 个超出数量的文件。`);
     }
 
     setMessages(nextMessages);
@@ -119,22 +133,22 @@ export function ReferenceUploader({
     <section aria-labelledby="reference-uploader-title" className="reference-uploader">
       <div className="create-form__field-heading">
         <div>
-          <h2 id="reference-uploader-title">参考图片，可选</h2>
-          <p>最多 4 张，支持 JPG、PNG、WebP，单张不超过 10MB。</p>
+          <h2 id="reference-uploader-title">{title}</h2>
+          <p>{helpText}</p>
         </div>
-        <span>{entries.length}/4</span>
+        <span>{entries.length}/{maxFiles}</span>
       </div>
 
       <label className={`reference-uploader__dropzone${disabled ? ' reference-uploader__dropzone--disabled' : ''}`}>
         <UploadSimple aria-hidden="true" size={24} weight="duotone" />
         <span>
-          <strong>选择参考图片</strong>
-          <small>图片会先在本机预览，生成时再上传</small>
+          <strong>{selectLabel}</strong>
+          <small>{selectHint}</small>
         </span>
         <input
           accept="image/jpeg,image/png,image/webp"
           disabled={disabled}
-          multiple
+          multiple={maxFiles > 1}
           onChange={handleSelection}
           type="file"
         />
@@ -147,7 +161,7 @@ export function ReferenceUploader({
       ) : null}
 
       {entries.length > 0 ? (
-        <ul aria-label="已选择的参考图片" className="reference-uploader__previews">
+        <ul aria-label="已选择的图片" className="reference-uploader__previews">
           {entries.map(entry => (
             <li className="reference-preview" key={entry.key}>
               <span className="reference-preview__image">
@@ -158,7 +172,7 @@ export function ReferenceUploader({
                 <span>{formatFileSize(entry.file.size)} {fileStatusLabel(status)}</span>
               </span>
               <button
-                aria-label={`移除参考图片 ${entry.file.name}`}
+                aria-label={`移除图片 ${entry.file.name}`}
                 className="reference-preview__remove"
                 disabled={disabled}
                 onClick={() => removeEntry(entry.key)}
@@ -172,7 +186,7 @@ export function ReferenceUploader({
       ) : (
         <div className="reference-uploader__empty">
           <ImageSquare aria-hidden="true" size={20} />
-          <span>还没有选择参考图片</span>
+          <span>{emptyLabel}</span>
         </div>
       )}
     </section>

@@ -1,4 +1,4 @@
-import type {GenerateResponse,ReferenceAsset,TemplateId} from '../../../../shared/types';
+import type {GenerateResult,ReferenceAsset,WorkflowId} from '../../../../shared/types';
 
 export type StoredReferenceFile={
   asset:ReferenceAsset;
@@ -15,10 +15,10 @@ export type StoredPageBlob={
 export type HistoryRecord={
   id:string;
   createdAt:string;
-  templateId:TemplateId;
+  workflowId:WorkflowId;
   userPrompt:string;
   referenceFiles:StoredReferenceFile[];
-  response:GenerateResponse;
+  result:GenerateResult;
   pageBlobs:StoredPageBlob[];
 };
 

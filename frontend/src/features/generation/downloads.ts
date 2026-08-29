@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import type {GeneratedPage,GenerateResponse} from '../../../../shared/types';
+import type {GenerateResult,WorkflowPageBase} from '../../../../shared/types';
 
 export const IMAGE_FETCH_TIMEOUT_MS=30_000;
 export const MAX_IMAGE_BYTES=25*1024*1024;
@@ -126,7 +126,7 @@ function triggerBlobDownload(blob:Blob,filename:string):void{
   }
 }
 
-export async function downloadPage(page:GeneratedPage):Promise<void>{
+export async function downloadPage(page:WorkflowPageBase):Promise<void>{
   if(page.status!=='succeeded'||!page.imageUrl){
     throw new DownloadError(0,'当前图片尚未生成成功');
   }
@@ -135,18 +135,22 @@ export async function downloadPage(page:GeneratedPage):Promise<void>{
   triggerBlobDownload(blob,safeBasename(page.filename,fallback));
 }
 
-function packageCopy(response:GenerateResponse):string{
-  const {title,body,tags}=response.copy;
-  return `标题：${title}\n正文：${body}\n标签：${tags.join('、')}`;
+function packageCopy(result:GenerateResult):string{
+  const {body,tags}=result.copy;
+  // 原创 IP 只有一个标题；图鉴导出 3 个候选标题供挑选。
+  const titleBlock=result.workflowId==='original-ip'
+    ?`标题：${result.copy.title}`
+    :`候选标题：\n${result.copy.titles.join('\n')}`;
+  return `${titleBlock}\n正文：${body}\n标签：${tags.join('、')}`;
 }
 
-export async function buildPackage(response:GenerateResponse):Promise<Blob>{
-  const successfulPages=response.pages.filter(page=>page.status==='succeeded');
+export async function buildPackage(result:GenerateResult):Promise<Blob>{
+  const successfulPages=result.pages.filter(page=>page.status==='succeeded');
   if(successfulPages.length>MAX_PACKAGE_PAGES){
     throw new DownloadError(0,'素材包图片过多，无法下载');
   }
   const zip=new JSZip();
-  zip.file('文案.txt',packageCopy(response));
+  zip.file('文案.txt',packageCopy(result));
   const usedFilenames=new Set(['文案.txt'.toLowerCase()]);
   let totalImageBytes=0;
 
@@ -166,8 +170,8 @@ export async function buildPackage(response:GenerateResponse):Promise<Blob>{
   return await zip.generateAsync({type:'blob'});
 }
 
-export async function downloadPackage(response:GenerateResponse):Promise<void>{
-  const blob=await buildPackage(response);
-  const filename=safeBasename(`文旅素材-${response.requestId}.zip`,'文旅素材.zip');
+export async function downloadPackage(result:GenerateResult):Promise<void>{
+  const blob=await buildPackage(result);
+  const filename=safeBasename(`文旅素材-${result.requestId}.zip`,'文旅素材.zip');
   triggerBlobDownload(blob,filename);
 }

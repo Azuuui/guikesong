@@ -92,17 +92,17 @@ describe('AppShell', () => {
 
   it.each([
     ['/', '工作台'],
-    ['/templates', '模板中心'],
-    ['/templates/ip-image/create', '模板创建'],
-    ['/results/request-1', '生成结果'],
-    ['/history', '历史记录'],
-    ['/history/record-1', '历史详情'],
-  ])('可直接访问固定路由 %s', (path, pageName) => {
+    ['/templates', '选择一个模板开始创作'],
+    ['/templates/ip-image/create', '没有找到这个模板'],
+    ['/results/request-1', '没有找到这条生成结果'],
+    ['/history', '本机历史'],
+    ['/history/record-1', '这条生成结果已经不在当前浏览器中'],
+  ])('可直接访问固定路由 %s', async (path, pageName) => {
     const router = createMemoryRouter(appRouter.routes, {initialEntries: [path]});
 
     render(<RouterProvider router={router} />);
 
-    expect(screen.getByRole('heading', {level: 1, name: pageName})).toBeVisible();
+    expect(await screen.findByRole('heading', {level: 1, name: pageName})).toBeVisible();
   });
 
   it('移动导航打开后聚焦抽屉，并在 Esc 关闭后恢复焦点', async () => {

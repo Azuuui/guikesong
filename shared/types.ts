@@ -1,5 +1,38 @@
-export const TEMPLATE_IDS=['ip-image','travel-cards','scenery-collage','people-collage'] as const; export type TemplateId=typeof TEMPLATE_IDS[number];
-export const TEMPLATE_LABELS:Record<TemplateId,string>={'ip-image':'IP 宣传海报','travel-cards':'攻略种草卡','scenery-collage':'景区氛围大片','people-collage':'人物打卡大片'};
-export type GeneratedCopy={title:string;body:string;tags:string[]}; export type GeneratedPage={id:string;pageType:'cover'|'content'|'ending';filename:string;status:'succeeded'|'failed';imageUrl?:string;alt?:string;error?:string}; export type GenerateRequest={templateId:TemplateId;userPrompt:string;referenceAssetIds:string[]}; export type GenerateResponse={requestId:string;templateId:TemplateId;status:'succeeded'|'partial';copy:GeneratedCopy;pages:GeneratedPage[];warnings:string[]};
-export type ReferenceAsset={assetId:string;url:string;originalName:string;mediaType:'image/jpeg'|'image/png'|'image/webp';size:number;createdAt:string}; export type VisualPlanPage={id:string;pageType:GeneratedPage['pageType'];imagePrompt:string;filename:string};
-export function validateRequest(x:unknown): string|null { if(!TEMPLATE_IDS.includes((x as {templateId?:unknown})?.templateId as never)) return '未知模板'; const p=String((x as {userPrompt?:unknown})?.userPrompt??'').trim(); if(p.length<2||p.length>500)return '请输入 2-500 字需求'; if(!Array.isArray((x as {referenceAssetIds?:unknown})?.referenceAssetIds)||(x as {referenceAssetIds:string[]}).referenceAssetIds.length>4)return '参考图最多 4 张'; return null }
+/**
+ * 公共共享契约。
+ * 旧四模板（ip-image/travel-cards/scenery-collage/people-collage）合同已删除，
+ * 生成请求与结果统一使用 shared/workflows.ts 的 workflowId 判别联合。
+ */
+
+export type ReferenceAsset = {
+  assetId: string;
+  url: string;
+  originalName: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  size: number;
+  createdAt: string;
+};
+
+export {WORKFLOW_IDS} from './workflows';
+export type {
+  GenerateRequest,
+  GenerateResult,
+  IpProfile,
+  IpProfilePublicOutput,
+  OriginalIpCopy,
+  OriginalIpPage,
+  OriginalIpPageRole,
+  OriginalIpRequest,
+  OriginalIpResult,
+  WorkflowId,
+  WorkflowPageBase,
+  XhsAtlasCopy,
+  XhsAtlasList,
+  XhsAtlasListCover,
+  XhsAtlasListItem,
+  XhsAtlasListMeta,
+  XhsAtlasPage,
+  XhsAtlasPageRole,
+  XhsAtlasRequest,
+  XhsAtlasResult,
+} from './workflows';

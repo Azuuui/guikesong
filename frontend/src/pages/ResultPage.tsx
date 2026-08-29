@@ -1,13 +1,13 @@
 import {useEffect, useState} from 'react';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
-import type {GenerateResponse} from '../../../shared/types';
+import type {GenerateResult} from '../../../shared/types';
 import {ResultDetail} from '../features/results/ResultDetail';
 import {historyRepository} from '../features/history/historyRepository';
 import {materializeHistoryResult} from '../features/history/resultMaterializer';
 import {NotFoundPage} from './NotFoundPage';
 
 type ResultLocationState = {
-  response?: GenerateResponse;
+  result?: GenerateResult;
   userPrompt?: string;
   createdAt?: string;
   historySaveWarning?: string;
@@ -15,21 +15,21 @@ type ResultLocationState = {
 
 type ResultPageState =
   | {requestId: string; status: 'loading'}
-  | {requestId: string; status: 'ready'; response: GenerateResponse; userPrompt: string; createdAt: string; historySaveWarning?: string}
+  | {requestId: string; status: 'ready'; result: GenerateResult; userPrompt: string; createdAt: string; historySaveWarning?: string}
   | {requestId: string; status: 'missing'}
   | {requestId: string; status: 'error'};
 
 function currentResult(state: ResultLocationState | null, requestId: string): ResultPageState | undefined {
   if (
-    !state?.response
-    || state.response.requestId !== requestId
+    !state?.result
+    || state.result.requestId !== requestId
     || typeof state.userPrompt !== 'string'
     || typeof state.createdAt !== 'string'
   ) return undefined;
   return {
     requestId,
     status: 'ready',
-    response: state.response,
+    result: state.result,
     userPrompt: state.userPrompt,
     createdAt: state.createdAt,
     historySaveWarning: typeof state.historySaveWarning === 'string' ? state.historySaveWarning : undefined,
@@ -70,7 +70,7 @@ export function ResultPage() {
       setState({
         requestId,
         status: 'ready',
-        response: materialized.response,
+        result: materialized.result,
         userPrompt: record.userPrompt,
         createdAt: record.createdAt,
       });
@@ -96,8 +96,8 @@ export function ResultPage() {
     <ResultDetail
       createdAt={state.createdAt}
       historySaveWarning={state.historySaveWarning}
-      onRegenerate={() => navigate(`/templates/${state.response.templateId}/create`, {state: {initialPrompt: state.userPrompt}})}
-      response={state.response}
+      onRegenerate={() => navigate(`/templates/${state.result.workflowId}/create`, {state: {initialPrompt: state.userPrompt}})}
+      result={state.result}
       source="current"
       userPrompt={state.userPrompt}
     />

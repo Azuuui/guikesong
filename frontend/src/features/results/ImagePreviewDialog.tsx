@@ -1,13 +1,18 @@
 import {ArrowLeft, ArrowRight, DownloadSimple, X} from '@phosphor-icons/react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import type {RefObject} from 'react';
-import type {GeneratedPage} from '../../../../shared/types';
+import type {
+  OriginalIpPage,
+  OriginalIpPageRole,
+  XhsAtlasPage,
+  XhsAtlasPageRole,
+} from '../../../../shared/types';
 import {Button} from '../../components/Button';
 import {DownloadError, downloadPage} from '../generation/downloads';
 
 type ImagePreviewDialogProps = {
   isOpen: boolean;
-  pages: readonly GeneratedPage[];
+  pages: readonly (OriginalIpPage | XhsAtlasPage)[];
   selectedPageId: string | undefined;
   onClose: () => void;
   onImageUnavailable: (pageId: string) => void;
@@ -15,10 +20,14 @@ type ImagePreviewDialogProps = {
   returnFocusRef: RefObject<HTMLElement | null>;
 };
 
-const PAGE_TYPE_LABELS: Record<GeneratedPage['pageType'], string> = {
+const PAGE_ROLE_LABELS: Record<OriginalIpPageRole | XhsAtlasPageRole, string> = {
+  'brand-cover': '品牌主视觉',
+  'identity-system': '识别系统',
+  'product-system': '商品包装',
+  'scene-application': '场景应用',
+  overview: '总览图',
   cover: '封面',
-  content: '内容页',
-  ending: '结尾页',
+  content: '正文页',
 };
 
 function canHandleArrowKey(target: EventTarget | null): boolean {
@@ -154,14 +163,14 @@ export function ImagePreviewDialog({
       ref={dialogRef}
     >
       <div className="image-preview-dialog__topbar">
-        <p>{PAGE_TYPE_LABELS[selectedPage.pageType]} {originalPosition} / {pages.length}</p>
+        <p>{PAGE_ROLE_LABELS[selectedPage.role]} {originalPosition} / {pages.length}</p>
         <Button aria-label="关闭大图预览" className="image-preview-dialog__close" onClick={() => dialogRef.current?.close()} ref={closeButtonRef} variant="ghost">
           <X aria-hidden="true" size={22} weight="bold" />
         </Button>
       </div>
       <div className="image-preview-dialog__image-wrap">
         <img
-          alt={selectedPage.alt || `${PAGE_TYPE_LABELS[selectedPage.pageType]}预览`}
+          alt={selectedPage.alt || `${PAGE_ROLE_LABELS[selectedPage.role]}预览`}
           onError={() => {
             onImageUnavailable(selectedPage.id);
             dialogRef.current?.close();

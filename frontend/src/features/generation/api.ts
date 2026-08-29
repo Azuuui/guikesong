@@ -1,26 +1,47 @@
 import type {
   GenerateRequest,
-  GenerateResponse,
+  GenerateResult,
+  IpProfilePublicOutput,
   ReferenceAsset,
+  WorkflowPageBase,
 } from '../../../../shared/types';
-import {TEMPLATE_IDS} from '../../../../shared/types';
+import {WORKFLOW_IDS} from '../../../../shared/types';
 
 const NETWORK_ERROR_MESSAGE='网络连接失败，请稍后重试';
 const REQUEST_ABORTED_MESSAGE='请求已中止，请重新操作';
 const REQUEST_TIMEOUT_MESSAGE='请求超时，请稍后重试';
-const REQUEST_TIMEOUT_MS=30_000;
+const UPLOAD_TIMEOUT_MS=30_000;
+/** 生成是长耗时同步请求：独立 10 分钟超时，不与上传共用。 */
+export const GENERATE_REQUEST_TIMEOUT_MS=600_000;
+const REFERENCE_MEDIA_TYPES=new Set(['image/jpeg','image/png','image/webp']);
+const PAGE_STATUSES=new Set(['succeeded','failed']);
+const RESULT_STATUSES=new Set(['succeeded','partial']);
+const IP_PAGE_ROLES=new Set(['brand-cover','identity-system','product-system','scene-application','overview']);
+const XHS_PAGE_ROLES=new Set(['cover','content']);
 const SAFE_BUSINESS_ERRORS=new Set([
   '请上传图片',
   '仅支持 JPG、PNG、WebP',
   '图片签名无效',
-  '未知模板',
-  '请输入 2-500 字需求',
+  '单张图片不能超过 10MB',
   '参考图最多 4 张',
+  '参考图不存在或已过期，请重新上传',
+  '请上传 IP 标准图',
+  '请输入 IP 名称',
+  'IP 名称不超过 50 字',
+  '请输入 IP 描述',
+  'IP 描述不超过 500 字',
+  '尚未创建 IP 档案',
+  'IP 档案已锁定，无法修改',
+  'IP 档案未锁定，无法生成',
+  'IP 档案已更新，请刷新后重试',
+  '未知工作流',
+  'IP 档案或产品图缺失',
+  '请输入产品描述',
+  '产品描述不超过 500 字',
+  '请输入选题',
+  '选题需包含数量，如"贵阳的12种美食"',
+  '选题数量至少为 2',
 ]);
-const REFERENCE_MEDIA_TYPES=new Set(['image/jpeg','image/png','image/webp']);
-const PAGE_TYPES=new Set(['cover','content','ending']);
-const PAGE_STATUSES=new Set(['succeeded','failed']);
-const RESPONSE_STATUSES=new Set(['succeeded','partial']);
 
 export class ApiError extends Error{
   constructor(public status:number,message:string){
@@ -41,6 +62,10 @@ function isOptionalString(value:unknown):boolean{
   return value===undefined||typeof value==='string';
 }
 
+function isStringArray(value:unknown):value is string[]{
+  return Array.isArray(value)&&value.every(item=>typeof item==='string');
+}
+
 function isReferenceAsset(value:unknown):value is ReferenceAsset{
   if(!isRecord(value)) return false;
   return isNonEmptyString(value.assetId)
@@ -54,34 +79,98 @@ function isReferenceAsset(value:unknown):value is ReferenceAsset{
     &&isNonEmptyString(value.createdAt);
 }
 
-function isGenerateResponse(value:unknown):value is GenerateResponse{
-  if(!isRecord(value)||!isRecord(value.copy)) return false;
-  if(!isNonEmptyString(value.requestId)
-    ||typeof value.templateId!=='string'
-    ||!TEMPLATE_IDS.some(templateId=>templateId===value.templateId)
+function isWorkflowPage(value:unknown,roles:ReadonlySet<string>):value is WorkflowPageBase&{role:string}{
+  if(!isRecord(value)) return false;
+  if(!isNonEmptyString(value.id)
+    ||typeof value.role!=='string'
+    ||!roles.has(value.role)
+    ||typeof value.filename!=='string'
     ||typeof value.status!=='string'
-    ||!RESPONSE_STATUSES.has(value.status)
-    ||typeof value.copy.title!=='string'
-    ||typeof value.copy.body!=='string'
-    ||!Array.isArray(value.copy.tags)
-    ||!value.copy.tags.every(tag=>typeof tag==='string')
-    ||!Array.isArray(value.pages)
-    ||!Array.isArray(value.warnings)
-    ||!value.warnings.every(warning=>typeof warning==='string')) return false;
+    ||!PAGE_STATUSES.has(value.status)
+    ||!isOptionalString(value.imageUrl)
+    ||!isOptionalString(value.alt)
+    ||!isOptionalString(value.error)) return false;
+  return value.status!=='succeeded'||isNonEmptyString(value.imageUrl);
+}
 
-  return value.pages.every(page=>{
-    if(!isRecord(page)) return false;
-    if(!isNonEmptyString(page.id)
-      ||typeof page.pageType!=='string'
-      ||!PAGE_TYPES.has(page.pageType)
-      ||!isNonEmptyString(page.filename)
-      ||typeof page.status!=='string'
-      ||!PAGE_STATUSES.has(page.status)
-      ||!isOptionalString(page.imageUrl)
-      ||!isOptionalString(page.alt)
-      ||!isOptionalString(page.error)) return false;
-    return page.status!=='succeeded'||isNonEmptyString(page.imageUrl);
-  });
+function isIpProfilePublicOutput(value:unknown):value is IpProfilePublicOutput{
+  if(!isRecord(value)) return false;
+  return isNonEmptyString(value.ipProfileId)
+    &&typeof value.version==='number'
+    &&Number.isFinite(value.version)
+    &&value.version>=1
+    &&isNonEmptyString(value.name)
+    &&isNonEmptyString(value.referenceImageUrl)
+    &&isNonEmptyString(value.description)
+    &&(value.status==='draft'||value.status==='locked');
+}
+
+function isAtlasListItem(value:unknown):boolean{
+  if(!isRecord(value)) return false;
+  return ['no','tag','name','line1','line2','punch','illustrationHint']
+    .every(field=>typeof value[field]==='string'&&value[field].length>0);
+}
+
+function isAtlasList(value:unknown):boolean{
+  if(!isRecord(value)) return false;
+  const {meta,cover,items}=value;
+  if(!isRecord(meta)||!isRecord(cover)||!Array.isArray(items)) return false;
+  if(!isNonEmptyString(meta.userTitle)
+    ||typeof meta.count!=='number'
+    ||!isNonEmptyString(meta.measureWord)
+    ||!isNonEmptyString(meta.domainType)
+    ||!isNonEmptyString(meta.orgDimension)
+    ||!isNonEmptyString(meta.themeWord)
+    ||!Array.isArray(meta.fieldLabels)
+    ||meta.fieldLabels.length!==2
+    ||!meta.fieldLabels.every(label=>typeof label==='string')
+    ||!isNonEmptyString(meta.motif)
+    ||!isNonEmptyString(meta.palette)
+    ||!Array.isArray(meta.pageSlogans)
+    ||meta.pageSlogans.length!==6
+    ||!meta.pageSlogans.every(slogan=>typeof slogan==='string')) return false;
+  if(!isNonEmptyString(cover.titleLine1)
+    ||!isNonEmptyString(cover.titleLine2)
+    ||!isNonEmptyString(cover.highlightWord)
+    ||!isNonEmptyString(cover.stickyNote)
+    ||!isNonEmptyString(cover.bottomSlogan)) return false;
+  return items.every(item=>isAtlasListItem(item));
+}
+
+/** API 运行时守卫：按 workflowId 校验专属 copy、pages 与 artifacts。 */
+function isGenerateResult(value:unknown):value is GenerateResult{
+  if(!isRecord(value)) return false;
+  if(!isNonEmptyString(value.requestId)
+    ||typeof value.workflowId!=='string'
+    ||!(WORKFLOW_IDS as readonly string[]).includes(value.workflowId)
+    ||typeof value.status!=='string'
+    ||!RESULT_STATUSES.has(value.status)
+    ||!isRecord(value.copy)
+    ||!Array.isArray(value.pages)
+    ||!isStringArray(value.warnings)) return false;
+
+  if(value.workflowId==='original-ip'){
+    const {copy}=value;
+    if(typeof copy.title!=='string'
+      ||typeof copy.body!=='string'
+      ||!isStringArray(copy.tags)
+      ||!isNonEmptyString(value.ipProfileId)
+      ||typeof value.ipProfileVersion!=='number'
+      ||(value.overview!==undefined&&!(
+        isRecord(value.overview)&&isNonEmptyString(value.overview.pageId)&&isNonEmptyString(value.overview.filename)
+      ))) return false;
+    return value.pages.every(page=>isWorkflowPage(page,IP_PAGE_ROLES));
+  }
+
+  const {copy}=value;
+  if(!Array.isArray(copy.titles)
+    ||copy.titles.length!==3
+    ||!copy.titles.every((title:unknown)=>typeof title==='string')
+    ||typeof copy.body!=='string'
+    ||!isStringArray(copy.tags)
+    ||!isNonEmptyString(value.topic)
+    ||!isAtlasList(value.list)) return false;
+  return value.pages.every(page=>isWorkflowPage(page,XHS_PAGE_ROLES));
 }
 
 async function parseJson(response:Response):Promise<unknown>{
@@ -103,6 +192,7 @@ async function requestJson(
   init:RequestInit,
   fallback:string,
   externalSignal?:AbortSignal,
+  timeoutMs:number=UPLOAD_TIMEOUT_MS,
 ):Promise<unknown>{
   const requestController=new AbortController();
   let timedOut=false;
@@ -110,7 +200,7 @@ async function requestJson(
   const timeoutId=window.setTimeout(()=>{
     timedOut=true;
     requestController.abort();
-  },REQUEST_TIMEOUT_MS);
+  },timeoutMs);
 
   if(externalSignal?.aborted){
     abortFromCaller();
@@ -164,26 +254,79 @@ export async function uploadReferenceFiles(
   return body.assets;
 }
 
-export async function generateMarketingAssets(
+export async function getActiveIpProfile(
+  signal?:AbortSignal,
+):Promise<IpProfilePublicOutput|null>{
+  let body:unknown;
+  try{
+    body=await requestJson(
+      '/api/ip-profiles/active',
+      {method:'GET'},
+      'IP 档案读取失败，请稍后重试',
+      signal,
+    );
+  }catch(error){
+    if(error instanceof ApiError&&error.status===404) return null;
+    throw error;
+  }
+  if(!isIpProfilePublicOutput(body)){
+    throw new ApiError(200,'IP 档案读取失败，请稍后重试');
+  }
+  return body;
+}
+
+export async function createIpProfile(
+  input:{file:File;name:string;description:string},
+  signal?:AbortSignal,
+):Promise<IpProfilePublicOutput>{
+  const formData=new FormData();
+  formData.append('file',input.file);
+  formData.append('name',input.name);
+  formData.append('description',input.description);
+  const body=await requestJson(
+    '/api/ip-profiles',
+    {method:'POST',body:formData},
+    'IP 档案保存失败，请稍后重试',
+    signal,
+  );
+  if(!isIpProfilePublicOutput(body)){
+    throw new ApiError(200,'IP 档案保存失败，请稍后重试');
+  }
+  return body;
+}
+
+export async function lockIpProfile(
+  ipProfileId:string,
+  signal?:AbortSignal,
+):Promise<IpProfilePublicOutput>{
+  const body=await requestJson(
+    `/api/ip-profiles/${encodeURIComponent(ipProfileId)}/lock`,
+    {method:'POST'},
+    'IP 档案锁定失败，请稍后重试',
+    signal,
+  );
+  if(!isIpProfilePublicOutput(body)){
+    throw new ApiError(200,'IP 档案锁定失败，请稍后重试');
+  }
+  return body;
+}
+
+export async function generateAssets(
   request:GenerateRequest,
   signal?:AbortSignal,
-):Promise<GenerateResponse>{
-  const payload:GenerateRequest={
-    templateId:request.templateId,
-    userPrompt:request.userPrompt,
-    referenceAssetIds:request.referenceAssetIds,
-  };
+):Promise<GenerateResult>{
   const body=await requestJson(
     '/api/generate',
     {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload),
+      body:JSON.stringify(request),
     },
     '素材生成失败，请稍后重试',
     signal,
+    GENERATE_REQUEST_TIMEOUT_MS,
   );
-  if(!isGenerateResponse(body)){
+  if(!isGenerateResult(body)){
     throw new ApiError(200,'素材生成失败，请稍后重试');
   }
   return body;

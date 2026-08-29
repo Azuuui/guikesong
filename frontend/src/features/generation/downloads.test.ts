@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import type {GeneratedPage} from '../../../../shared/types';
-import {makeGenerateResponse} from '../../test/fixtures';
+import type {WorkflowPageBase} from '../../../../shared/types';
+import {makeGenerateResult} from '../../test/fixtures';
 import {
   buildPackage,
   copyText,
@@ -74,7 +74,7 @@ describe('generation downloads',()=>{
   });
 
   it('downloads a successful page blob and always releases browser resources',async()=>{
-    const page=makeGenerateResponse({pageCount:1}).pages[0];
+    const page=makeGenerateResult({pageCount:1}).pages[0];
     vi.mocked(fetch).mockResolvedValue(blobResponse('image'));
 
     await downloadPage(page);
@@ -88,7 +88,7 @@ describe('generation downloads',()=>{
   });
 
   it('releases the page object url even when the browser click fails',async()=>{
-    const page=makeGenerateResponse({pageCount:1}).pages[0];
+    const page=makeGenerateResult({pageCount:1}).pages[0];
     vi.mocked(fetch).mockResolvedValue(blobResponse('image'));
     click.mockImplementationOnce(()=>{throw new Error('browser blocked download');});
 
@@ -98,7 +98,7 @@ describe('generation downloads',()=>{
   });
 
   it('uses a safe basename for a page download',async()=>{
-    const page={...makeGenerateResponse({pageCount:1}).pages[0],filename:'../private/poster.svg'};
+    const page={...makeGenerateResult({pageCount:1}).pages[0],filename:'../private/poster.svg'};
     vi.mocked(fetch).mockResolvedValue(blobResponse('image'));
 
     await downloadPage(page);
@@ -107,8 +107,8 @@ describe('generation downloads',()=>{
   });
 
   it.each([
-    [{...makeGenerateResponse({pageCount:1}).pages[0],status:'failed' as const},'当前图片尚未生成成功'],
-    [{...makeGenerateResponse({pageCount:1}).pages[0],imageUrl:undefined},'当前图片尚未生成成功'],
+    [{...makeGenerateResult({pageCount:1}).pages[0],status:'failed' as const},'当前图片尚未生成成功'],
+    [{...makeGenerateResult({pageCount:1}).pages[0],imageUrl:undefined},'当前图片尚未生成成功'],
   ])('rejects unavailable pages without creating a fake download',async(page,message)=>{
     await expect(downloadPage(page)).rejects.toEqual(expect.objectContaining({
       name:'DownloadError',
@@ -121,40 +121,52 @@ describe('generation downloads',()=>{
   it('fails safely when the page image request is unsuccessful',async()=>{
     vi.mocked(fetch).mockResolvedValue(blobResponse('private stack',502));
 
-    await expect(downloadPage(makeGenerateResponse({pageCount:1}).pages[0]))
+    await expect(downloadPage(makeGenerateResult({pageCount:1}).pages[0]))
       .rejects.toMatchObject({status:502,message:'图片下载失败，请稍后重试'});
     expect(createObjectURL).not.toHaveBeenCalled();
   });
 
   it('builds a partial package with exact copy and successful dynamic filenames',async()=>{
-    const response=makeGenerateResponse({failedIndexes:[1]});
+    const result=makeGenerateResult({failedIndexes:[1],pageCount:3});
     vi.mocked(fetch)
       .mockResolvedValueOnce(blobResponse('image-one'))
       .mockResolvedValueOnce(blobResponse('image-three'));
 
-    const blob=await buildPackage(response);
+    const blob=await buildPackage(result);
     const zip=await JSZip.loadAsync(await blob.arrayBuffer());
 
     expect(Object.keys(zip.files).sort()).toEqual([
-      'ip-image-1.svg',
-      'ip-image-3.svg',
+      'original-ip-1.svg',
+      'original-ip-3.svg',
       '文案.txt',
     ].sort());
     await expect(zip.file('文案.txt')?.async('string')).resolves.toBe(
       '标题：贵州夏季避暑宣传\n正文：面向年轻游客的夏季避暑内容。\n标签：贵州旅行、夏季避暑',
     );
-    expect(fetch).toHaveBeenNthCalledWith(1,response.pages[0].imageUrl,{
+    expect(fetch).toHaveBeenNthCalledWith(1,result.pages[0].imageUrl,{
       signal:expect.any(AbortSignal),
     });
-    expect(fetch).toHaveBeenNthCalledWith(2,response.pages[2].imageUrl,{
+    expect(fetch).toHaveBeenNthCalledWith(2,result.pages[2].imageUrl,{
       signal:expect.any(AbortSignal),
     });
   });
 
-  it('still creates a copy package when every image failed',async()=>{
-    const response=makeGenerateResponse({failedIndexes:[0,1],pageCount:2});
+  it('builds an xhs-atlas package exporting all candidate titles',async()=>{
+    const result=makeGenerateResult({workflowId:'xhs-atlas',pageCount:0});
 
-    const zip=await JSZip.loadAsync(await (await buildPackage(response)).arrayBuffer());
+    const zip=await JSZip.loadAsync(await (await buildPackage(result)).arrayBuffer());
+
+    expect(Object.keys(zip.files)).toEqual(['文案.txt']);
+    await expect(zip.file('文案.txt')?.async('string')).resolves.toBe(
+      '候选标题：\n贵阳美食图鉴来了\n12种贵阳必吃美食\n收藏这份贵阳美食清单\n正文：按场景整理的贵阳美食清单正文。\n标签：#贵阳美食、#干货分享',
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('still creates a copy package when every image failed',async()=>{
+    const result=makeGenerateResult({failedIndexes:[0,1],pageCount:2});
+
+    const zip=await JSZip.loadAsync(await (await buildPackage(result)).arrayBuffer());
 
     expect(Object.keys(zip.files)).toEqual(['文案.txt']);
     expect(fetch).not.toHaveBeenCalled();
@@ -163,15 +175,15 @@ describe('generation downloads',()=>{
   it('rejects the whole package safely when a successful image cannot be fetched',async()=>{
     vi.mocked(fetch).mockResolvedValue(blobResponse('provider stack',503));
 
-    await expect(buildPackage(makeGenerateResponse({pageCount:1})))
+    await expect(buildPackage(makeGenerateResult({pageCount:1})))
       .rejects.toMatchObject({status:503,message:'素材包图片下载失败，请稍后重试'});
   });
 
   it('rejects a package when a successful page has no image url',async()=>{
-    const response=makeGenerateResponse({pageCount:1});
-    response.pages[0]={...response.pages[0],imageUrl:undefined};
+    const result=makeGenerateResult({pageCount:1});
+    result.pages[0]={...result.pages[0],imageUrl:undefined};
 
-    await expect(buildPackage(response)).rejects.toMatchObject({
+    await expect(buildPackage(result)).rejects.toMatchObject({
       status:0,
       message:'素材包图片下载失败，请稍后重试',
     });
@@ -179,14 +191,14 @@ describe('generation downloads',()=>{
   });
 
   it('normalizes dangerous package names without overwriting copy or duplicate images',async()=>{
-    const response=makeGenerateResponse({pageCount:4});
-    response.pages[0]={...response.pages[0],filename:'文案.txt'};
-    response.pages[1]={...response.pages[1],filename:'../poster.svg'};
-    response.pages[2]={...response.pages[2],filename:'poster.svg'};
-    response.pages[3]={...response.pages[3],filename:'   '};
+    const result=makeGenerateResult({pageCount:4});
+    result.pages[0]={...result.pages[0],filename:'文案.txt'};
+    result.pages[1]={...result.pages[1],filename:'../poster.svg'};
+    result.pages[2]={...result.pages[2],filename:'poster.svg'};
+    result.pages[3]={...result.pages[3],filename:'   '};
     vi.mocked(fetch).mockImplementation(async()=>blobResponse('image'));
 
-    const zip=await JSZip.loadAsync(await (await buildPackage(response)).arrayBuffer());
+    const zip=await JSZip.loadAsync(await (await buildPackage(result)).arrayBuffer());
 
     expect(Object.keys(zip.files).sort()).toEqual([
       '图片-4',
@@ -203,7 +215,7 @@ describe('generation downloads',()=>{
       headers:{'Content-Type':'text/html'},
     }));
 
-    await expect(buildPackage(makeGenerateResponse({pageCount:1}))).rejects.toMatchObject({
+    await expect(buildPackage(makeGenerateResult({pageCount:1}))).rejects.toMatchObject({
       message:'素材包图片下载失败，请稍后重试',
     });
   });
@@ -211,11 +223,12 @@ describe('generation downloads',()=>{
   it('rejects an image after reading a blob larger than the per-file limit',async()=>{
     const oversized=new Blob(['x'],{type:'image/svg+xml'});
     Object.defineProperty(oversized,'size',{value:MAX_IMAGE_BYTES+1});
-    const fetched=blobResponse('image');
+    // 无 body 的响应走 response.blob() 兜底路径，验证完整读取后的超限复核。
+    const fetched=new Response(null,{headers:{'Content-Type':'image/svg+xml'}});
     vi.spyOn(fetched,'blob').mockResolvedValue(oversized);
     vi.mocked(fetch).mockResolvedValue(fetched);
 
-    await expect(downloadPage(makeGenerateResponse({pageCount:1}).pages[0])).rejects.toMatchObject({
+    await expect(downloadPage(makeGenerateResult({pageCount:1}).pages[0])).rejects.toMatchObject({
       message:'图片下载失败，请稍后重试',
     });
     expect(createObjectURL).not.toHaveBeenCalled();
@@ -229,7 +242,7 @@ describe('generation downloads',()=>{
       });
     }));
 
-    const pending=downloadPage(makeGenerateResponse({pageCount:1}).pages[0]);
+    const pending=downloadPage(makeGenerateResult({pageCount:1}).pages[0]);
     const rejection=expect(pending).rejects.toMatchObject({
       status:0,
       message:'图片下载失败，请稍后重试',
@@ -240,34 +253,34 @@ describe('generation downloads',()=>{
   });
 
   it('rejects a package after the total image size limit is reached',async()=>{
-    const response=makeGenerateResponse({pageCount:9});
+    const result=makeGenerateResult({pageCount:9});
     const sizedBlob=new Blob(['x'],{type:'image/svg+xml'});
     Object.defineProperty(sizedBlob,'size',{value:MAX_IMAGE_BYTES});
     vi.mocked(fetch).mockImplementation(async()=>{
-      const fetched=blobResponse('image');
+      const fetched=new Response(null,{headers:{'Content-Type':'image/svg+xml'}});
       vi.spyOn(fetched,'blob').mockResolvedValue(sizedBlob);
       return fetched;
     });
 
-    await expect(buildPackage(response)).rejects.toMatchObject({
+    await expect(buildPackage(result)).rejects.toMatchObject({
       message:'素材包过大，无法下载',
     });
     expect(fetch).toHaveBeenCalledTimes(Math.floor(MAX_PACKAGE_IMAGE_BYTES/MAX_IMAGE_BYTES)+1);
   });
 
   it('rejects packages beyond the successful page count limit before fetching',async()=>{
-    const response=makeGenerateResponse({pageCount:MAX_PACKAGE_PAGES+1});
+    const result=makeGenerateResult({pageCount:MAX_PACKAGE_PAGES+1});
 
-    await expect(buildPackage(response)).rejects.toMatchObject({
+    await expect(buildPackage(result)).rejects.toMatchObject({
       message:'素材包图片过多，无法下载',
     });
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it('downloads a stable package filename and revokes its object url',async()=>{
-    const response=makeGenerateResponse({pageCount:0});
+    const result=makeGenerateResult({pageCount:0});
 
-    await downloadPackage(response);
+    await downloadPackage(result);
 
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect(click).toHaveBeenCalledTimes(1);
@@ -276,7 +289,7 @@ describe('generation downloads',()=>{
   });
 
   it('uses a typed error for invalid page input',async()=>{
-    const page={status:'failed'} as GeneratedPage;
+    const page={status:'failed'} as WorkflowPageBase;
     const error=await downloadPage(page).catch((reason:unknown)=>reason);
     expect(error).toBeInstanceOf(DownloadError);
   });

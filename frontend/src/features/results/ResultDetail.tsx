@@ -8,7 +8,12 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react';
 import {useEffect, useMemo, useRef, useState, type MouseEvent} from 'react';
-import type {GenerateResponse, GeneratedPage} from '../../../../shared/types';
+import type {
+  GenerateResult,
+  OriginalIpPageRole,
+  WorkflowPageBase,
+  XhsAtlasPageRole,
+} from '../../../../shared/types';
 import {Link} from 'react-router-dom';
 import {Button} from '../../components/Button';
 import {StatusBadge} from '../../components/StatusBadge';
@@ -18,7 +23,7 @@ import {formatHistoryTime} from '../history/time';
 import {ImagePreviewDialog} from './ImagePreviewDialog';
 
 export type ResultDetailProps = {
-  response: GenerateResponse;
+  result: GenerateResult;
   createdAt: string;
   userPrompt: string;
   source: 'current' | 'history';
@@ -29,10 +34,14 @@ export type ResultDetailProps = {
 type CopyTarget = 'title' | 'body' | 'tags';
 type Feedback = {target: CopyTarget | 'page' | 'package'; message: string; kind: 'success' | 'error'} | undefined;
 
-const PAGE_TYPE_LABELS: Record<GeneratedPage['pageType'], string> = {
+const PAGE_ROLE_LABELS: Record<OriginalIpPageRole | XhsAtlasPageRole, string> = {
+  'brand-cover': '品牌主视觉',
+  'identity-system': '识别系统',
+  'product-system': '商品包装',
+  'scene-application': '场景应用',
+  overview: '总览图',
   cover: '封面',
-  content: '内容页',
-  ending: '结尾页',
+  content: '正文页',
 };
 
 function fallbackTitle(prompt: string): string {
@@ -41,46 +50,54 @@ function fallbackTitle(prompt: string): string {
   return `${trimmed.slice(0, 30)}…`;
 }
 
-function firstSelectedPageId(pages: readonly GeneratedPage[]): string | undefined {
+/** 原创 IP 取唯一标题；图鉴取首个候选标题，缺省时回退用户输入。 */
+function resultTitle(result: GenerateResult, userPrompt: string): string {
+  if (result.workflowId === 'original-ip') {
+    return result.copy.title.trim() || fallbackTitle(userPrompt);
+  }
+  return result.copy.titles[0]?.trim() || fallbackTitle(userPrompt);
+}
+
+function firstSelectedPageId(pages: readonly WorkflowPageBase[]): string | undefined {
   return pages.find(page => page.status === 'succeeded')?.id ?? pages[0]?.id;
 }
 
-function StatusSummary({response}: {response: GenerateResponse}) {
-  const successfulCount = response.pages.filter(page => page.status === 'succeeded').length;
-  if (response.status === 'succeeded') {
+function StatusSummary({result}: {result: GenerateResult}) {
+  const successfulCount = result.pages.filter(page => page.status === 'succeeded').length;
+  if (result.status === 'succeeded') {
     return <StatusBadge tone="success">已完成</StatusBadge>;
   }
-  return <StatusBadge tone="warning">部分完成 {successfulCount}/{response.pages.length}</StatusBadge>;
+  return <StatusBadge tone="warning">部分完成 {successfulCount}/{result.pages.length}</StatusBadge>;
 }
 
 export function ResultDetail({
-  response,
+  result,
   createdAt,
   userPrompt,
   source,
   historySaveWarning,
   onRegenerate,
 }: ResultDetailProps) {
-  const template = TEMPLATE_CONFIGS_BY_ID.get(response.templateId);
-  const [selectedPageId, setSelectedPageId] = useState(() => firstSelectedPageId(response.pages));
+  const template = TEMPLATE_CONFIGS_BY_ID.get(result.workflowId);
+  const [selectedPageId, setSelectedPageId] = useState(() => firstSelectedPageId(result.pages));
   const [previewOpen, setPreviewOpen] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>();
   const [unavailableImageIds, setUnavailableImageIds] = useState<Set<string>>(() => new Set());
   const feedbackTimerRef = useRef<number | undefined>(undefined);
   const previewTriggerRef = useRef<HTMLElement>(null);
-  const selectedPage = response.pages.find(page => page.id === selectedPageId) ?? response.pages[0];
+  const selectedPage = result.pages.find(page => page.id === selectedPageId) ?? result.pages[0];
   const successfulCount = useMemo(
-    () => response.pages.filter(page => page.status === 'succeeded').length,
-    [response.pages],
+    () => result.pages.filter(page => page.status === 'succeeded').length,
+    [result.pages],
   );
-  const failedCount = response.pages.length - successfulCount;
-  const title = response.copy.title.trim() || fallbackTitle(userPrompt);
+  const failedCount = result.pages.length - successfulCount;
+  const title = resultTitle(result, userPrompt);
 
   // 结果切换时重置本地状态：渲染期调整状态，避免级联渲染
-  const [lastRequestId, setLastRequestId] = useState(response.requestId);
-  if (lastRequestId !== response.requestId) {
-    setLastRequestId(response.requestId);
-    setSelectedPageId(firstSelectedPageId(response.pages));
+  const [lastRequestId, setLastRequestId] = useState(result.requestId);
+  if (lastRequestId !== result.requestId) {
+    setLastRequestId(result.requestId);
+    setSelectedPageId(firstSelectedPageId(result.pages));
     setPreviewOpen(false);
     setUnavailableImageIds(new Set());
   }
@@ -96,13 +113,13 @@ export function ResultDetail({
   }
 
   async function handleCopy(target: CopyTarget, value: string) {
-    const result = await copyText(value);
-    showFeedback(result.ok
+    const copyResult = await copyText(value);
+    showFeedback(copyResult.ok
       ? {target, kind: 'success', message: '已复制'}
-      : {target, kind: 'error', message: result.message});
+      : {target, kind: 'error', message: copyResult.message});
   }
 
-  async function handleDownloadPage(page: GeneratedPage) {
+  async function handleDownloadPage(page: WorkflowPageBase) {
     try {
       await downloadPage(page);
       showFeedback({target: 'page', kind: 'success', message: '已开始下载'});
@@ -114,7 +131,7 @@ export function ResultDetail({
 
   async function handleDownloadPackage() {
     try {
-      await downloadPackage(response);
+      await downloadPackage(result);
       showFeedback({target: 'package', kind: 'success', message: '已开始下载'});
     } catch (error) {
       const message = error instanceof DownloadError ? error.message : '素材包下载失败，请稍后重试';
@@ -152,7 +169,7 @@ export function ResultDetail({
           <p className="result-detail__eyebrow">{template?.name ?? '文旅营销素材'} · {formatHistoryTime(createdAt)}</p>
           <div className="result-detail__title-row">
             <h1 id="result-detail-title">{title}</h1>
-            <StatusSummary response={response} />
+            <StatusSummary result={result} />
           </div>
           {historySaveWarning ? <p className="result-detail__history-warning" role="alert">{historySaveWarning}</p> : null}
         </div>
@@ -176,7 +193,7 @@ export function ResultDetail({
         </div>
       </header>
 
-      {response.status === 'partial' ? (
+      {result.status === 'partial' ? (
         <aside className="result-detail__partial-notice" role="status">
           <WarningCircle aria-hidden="true" size={20} weight="bold" />
           <div>
@@ -188,11 +205,11 @@ export function ResultDetail({
 
       <div className="result-detail__layout">
         <aside aria-label="页面缩略图" className="result-detail__thumbnails">
-          {response.pages.map((page, index) => {
+          {result.pages.map((page, index) => {
             const selected = page.id === selectedPage?.id;
             return (
               <button
-                aria-label={`${PAGE_TYPE_LABELS[page.pageType]} ${index + 1}${page.status === 'failed' ? '，未生成成功' : ''}`}
+                aria-label={`${PAGE_ROLE_LABELS[page.role]} ${index + 1}${page.status === 'failed' ? '，未生成成功' : ''}`}
                 aria-pressed={selected}
                 className={`result-thumbnail${selected ? ' result-thumbnail--selected' : ''}${page.status === 'failed' ? ' result-thumbnail--failed' : ''}`}
                 key={page.id}
@@ -206,7 +223,7 @@ export function ResultDetail({
                     <ImageSquare aria-hidden="true" size={22} />
                   )}
                 </span>
-                <span className="result-thumbnail__label">{PAGE_TYPE_LABELS[page.pageType]} {index + 1}</span>
+                <span className="result-thumbnail__label">{PAGE_ROLE_LABELS[page.role]} {index + 1}</span>
               </button>
             );
           })}
@@ -216,7 +233,7 @@ export function ResultDetail({
           {selectedPage?.status === 'succeeded' && selectedPage.imageUrl && !unavailableImageIds.has(selectedPage.id) ? (
             <>
               <button aria-label="打开大图预览" className="result-detail__preview-image" onClick={openPreview} type="button">
-                <img alt={selectedPage.alt || `${PAGE_TYPE_LABELS[selectedPage.pageType]}预览`} onError={() => setUnavailableImageIds(current => new Set(current).add(selectedPage.id))} src={selectedPage.imageUrl} />
+                <img alt={selectedPage.alt || `${PAGE_ROLE_LABELS[selectedPage.role]}预览`} onError={() => setUnavailableImageIds(current => new Set(current).add(selectedPage.id))} src={selectedPage.imageUrl} />
               </button>
               <div className="result-detail__preview-actions">
                 <Button onClick={openPreview} variant="secondary">
@@ -249,24 +266,24 @@ export function ResultDetail({
           <section>
             <div className="result-detail__copy-heading">
               <h2>标题</h2>
-              {copyAction('title', '标题', response.copy.title.trim() || title)}
+              {copyAction('title', '标题', title)}
             </div>
             <p className="result-detail__copy-title">{title}</p>
           </section>
           <section>
             <div className="result-detail__copy-heading">
               <h2>正文</h2>
-              {copyAction('body', '正文', response.copy.body)}
+              {copyAction('body', '正文', result.copy.body)}
             </div>
-            <p className="result-detail__copy-body">{response.copy.body}</p>
+            <p className="result-detail__copy-body">{result.copy.body}</p>
           </section>
           <section>
             <div className="result-detail__copy-heading">
               <h2>标签</h2>
-              {copyAction('tags', '标签', response.copy.tags.join(' '))}
+              {copyAction('tags', '标签', result.copy.tags.join(' '))}
             </div>
             <div className="result-detail__tags">
-              {response.copy.tags.map((tag, index) => <span className="result-detail__tag" key={`${tag}-${index}`}>{tag}</span>)}
+              {result.copy.tags.map((tag, index) => <span className="result-detail__tag" key={`${tag}-${index}`}>{tag}</span>)}
             </div>
           </section>
         </aside>
@@ -277,7 +294,7 @@ export function ResultDetail({
         onClose={() => setPreviewOpen(false)}
         onImageUnavailable={pageId => setUnavailableImageIds(current => new Set(current).add(pageId))}
         onSelectPage={setSelectedPageId}
-        pages={response.pages}
+        pages={result.pages}
         returnFocusRef={previewTriggerRef}
         selectedPageId={selectedPageId}
       />

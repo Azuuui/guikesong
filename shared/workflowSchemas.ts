@@ -12,22 +12,29 @@ export class WorkflowValidationError extends Error {
   }
 }
 
-const originalIpRequestSchema = z.object({
-  workflowId: z.literal('original-ip'),
-  ipProfileId: z.string().min(1, 'IP 档案或产品图缺失'),
-  productAssetId: z.string().min(1, 'IP 档案或产品图缺失'),
-  productDescription: z.string().trim().min(1, '请输入产品描述').max(500, '产品描述不超过 500 字'),
-});
+/** strict：额外字段一律拒绝，防止敏感字段进入工作流。 */
+const originalIpRequestSchema = z
+  .object({
+    workflowId: z.literal('original-ip'),
+    ipProfileId: z.string().min(1, 'IP 档案或产品图缺失'),
+    productAssetId: z.string().min(1, 'IP 档案或产品图缺失'),
+    productDescription: z.string().trim().min(1, '请输入产品描述').max(500, '产品描述不超过 500 字'),
+  })
+  .strict();
 
-const xhsAtlasRequestSchema = z.object({
-  workflowId: z.literal('xhs-atlas'),
-  topic: z.string().trim().min(1, '请输入选题'),
-  referenceAssetIds: z.array(z.string().min(1)).max(4, '参考图最多 4 张'),
-});
+const xhsAtlasRequestSchema = z
+  .object({
+    workflowId: z.literal('xhs-atlas'),
+    topic: z.string().trim().min(1, '请输入选题'),
+    referenceAssetIds: z.array(z.string().min(1)).max(4, '参考图最多 4 张'),
+  })
+  .strict();
 
 function firstIssueMessage(error: z.ZodError, fallback: string): string {
   const issue = error.issues[0];
   if (!issue) return fallback;
+  // 未知字段不回显字段名，避免把客户端内部结构泄露到提示里。
+  if (issue.code === 'unrecognized_keys') return '请求包含未知字段，请刷新页面后重试';
   return typeof issue.message === 'string' && issue.message.length > 0 ? issue.message : fallback;
 }
 
