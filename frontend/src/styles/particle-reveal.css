@@ -1,0 +1,32 @@
+.particle-reveal-background{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  overflow:hidden;
+  pointer-events:none;
+  background:#fafafa;
+}
+
+.particle-reveal-background__canvas{
+  display:block;
+  width:100%;
+  height:100%;
+  opacity:.78;
+}
+
+.particle-reveal-background__veil{
+  position:absolute;
+  inset:0;
+  background:radial-gradient(
+    ellipse 64% 50% at 50% 40%,
+    rgb(250 250 250 / 72%) 0%,
+    rgb(250 250 250 / 46%) 46%,
+    rgb(250 250 250 / 0%) 78%
+  );
+}
+
+@media (prefers-reduced-motion:reduce){
+  .particle-reveal-background__canvas{
+    display:none;
+  }
+}
