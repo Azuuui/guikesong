@@ -139,6 +139,36 @@
   border-color:rgb(230 0 18 / 16%);
 }
 
+/* 历史图标旁的生成状态圆点：直径 6px，不影响图标点击目标与导航高度。 */
+.product-top-navigation__job-dot{
+  position:absolute;
+  top:7px;
+  right:7px;
+  width:6px;
+  height:6px;
+  background:var(--color-primary-600);
+  border-radius:var(--radius-full);
+}
+
+.product-top-navigation__job-dot--running{
+  background:rgb(20 20 20 / 45%);
+  animation:product-top-navigation__job-dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes product-top-navigation__job-dot-pulse{
+  0%,100%{opacity:1}
+  50%{opacity:.35}
+}
+
+.product-top-navigation__job-dot-text{
+  position:absolute;
+  width:1px;
+  height:1px;
+  overflow:hidden;
+  clip:rect(0 0 0 0);
+  white-space:nowrap;
+}
+
 .product-top-navigation :is(a):focus-visible{
   outline:2px solid rgb(230 0 18 / 72%);
   outline-offset:2px;
@@ -200,5 +230,9 @@
   .product-top-navigation__tab,
   .product-top-navigation__history{
     transition:none;
+  }
+
+  .product-top-navigation__job-dot--running{
+    animation:none;
   }
 }

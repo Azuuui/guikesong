@@ -19,6 +19,55 @@
   line-height: 20px;
 }
 
+/* 进行中任务摘要：跨页面轮询期间在历史页顶部展示阶段。 */
+.history-job-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-5);
+  padding: 10px 14px;
+  background: var(--color-surface-100);
+  border: 1px solid var(--color-border-200);
+  border-radius: 10px;
+}
+
+.history-job-summary__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  background: var(--color-ink-500);
+  border-radius: var(--radius-full);
+}
+
+.history-job-summary--running .history-job-summary__dot {
+  background: var(--color-primary-600);
+  animation: history-job-summary__pulse 1.6s ease-in-out infinite;
+}
+
+.history-job-summary--terminal .history-job-summary__dot {
+  background: #12805c;
+}
+
+@keyframes history-job-summary__pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.history-job-summary__text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--color-ink-900);
+  font-size: 13px;
+  line-height: 20px;
+}
+
 .history-groups {
   display: grid;
   gap: var(--space-7);

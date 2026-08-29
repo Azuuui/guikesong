@@ -15,7 +15,7 @@ export type HomeGenerationStatusProps={
   onRetryHistorySave?:()=>void;
 };
 
-const PHASE_LABELS:Record<GenerationJobPhase,string>={
+export const GENERATION_JOB_PHASE_LABELS:Record<GenerationJobPhase,string>={
   preparing:'正在整理选题',
   content:'正在生成内容清单',
   copy:'正在生成文案',
@@ -33,11 +33,11 @@ function isTerminal(status:GenerationJobSnapshot['status']):boolean{
 
 function runningText(job:GenerationJobSnapshot):string{
   if(job.phase==='images'){
-    if(job.totalImages<=0) return PHASE_LABELS.images;
+    if(job.totalImages<=0) return GENERATION_JOB_PHASE_LABELS.images;
     const current=Math.min(job.completedImages+1,job.totalImages);
     return `正在生成图片 ${current}/${job.totalImages}`;
   }
-  return PHASE_LABELS[job.phase];
+  return GENERATION_JOB_PHASE_LABELS[job.phase];
 }
 
 export function HomeGenerationStatus({

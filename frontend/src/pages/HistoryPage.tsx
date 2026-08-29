@@ -6,10 +6,13 @@ import {ConfirmDialog} from '../components/ConfirmDialog';
 import {EmptyState} from '../components/EmptyState';
 import {StatusBadge} from '../components/StatusBadge';
 import {TEMPLATE_CONFIGS_BY_ID} from '../config/templates';
+import {useGenerationJob} from '../features/generation/GenerationJobProvider';
+import {GENERATION_JOB_PHASE_LABELS} from '../features/home/HomeGenerationStatus';
 import {historyRepository} from '../features/history/historyRepository';
 import {buildRegenerationState} from '../features/history/historyTypes';
 import {formatHistoryTime} from '../features/history/time';
 import type {HistoryRecord} from '../features/history/historyTypes';
+import type {GenerationJobSnapshot} from '../../../shared/generationJobs';
 
 type HistoryState =
   | {status: 'loading'; records: []}
@@ -21,6 +24,41 @@ type HistoryGroup = {
   label: '今天' | '昨天' | '更早';
   records: HistoryRecord[];
 };
+
+function isTerminalStatus(status: GenerationJobSnapshot['status']): boolean {
+  return status === 'succeeded' || status === 'partial' || status === 'failed';
+}
+
+/** 历史页顶部的进行中任务摘要：跨页面轮询期间也能在本页看到阶段。 */
+function HistoryJobSummary() {
+  const {activeJob, openResult} = useGenerationJob();
+  if (!activeJob) return null;
+
+  const terminal = isTerminalStatus(activeJob.status);
+  const text = terminal
+    ? activeJob.status === 'failed'
+      ? activeJob.error?.message ?? '素材生成失败，请稍后重试。'
+      : activeJob.status === 'partial'
+        ? '部分素材已完成'
+        : '素材已生成'
+    : activeJob.phase === 'images' && activeJob.totalImages > 0
+      ? `正在生成图片 ${Math.min(activeJob.completedImages + 1, activeJob.totalImages)}/${activeJob.totalImages}`
+      : GENERATION_JOB_PHASE_LABELS[activeJob.phase];
+
+  return (
+    <div
+      className={`history-job-summary history-job-summary--${terminal ? 'terminal' : 'running'}`}
+      data-testid="history-job-summary"
+      role="status"
+    >
+      <span aria-hidden="true" className="history-job-summary__dot" />
+      <p className="history-job-summary__text">{text}</p>
+      {terminal && activeJob.result ? (
+        <Button onClick={() => void openResult()} variant="ghost">查看结果</Button>
+      ) : null}
+    </div>
+  );
+}
 
 function firstStoredThumbnail(record: HistoryRecord): Blob | undefined {
   const blobsByPageId = new Map(record.pageBlobs.map(page => [page.pageId, page.blob]));
@@ -239,6 +277,8 @@ export function HistoryPage() {
           />
         ) : null}
       </header>
+
+      <HistoryJobSummary />
 
       {clearError ? <p className="history-page__error" role="alert">{clearError}</p> : null}
       {state.status === 'loading' ? <HistorySkeleton /> : null}

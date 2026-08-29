@@ -1,10 +1,33 @@
 import {ClockCounterClockwise} from '@phosphor-icons/react';
 import {Link,NavLink,useLocation} from 'react-router-dom';
 import {BRAND} from '../../config/brand';
+import {useGenerationJob} from '../generation/GenerationJobProvider';
 import '../../styles/product-top-navigation.css';
 
 function tabClassName({isActive}:{isActive:boolean}):string{
   return `product-top-navigation__tab${isActive?' product-top-navigation__tab--active':''}`;
+}
+
+/** 历史图标旁的生成状态圆点：运行中脉冲，完成且未查看时常亮，查看后消失。 */
+function GenerationJobIndicator(){
+  const {activeJob,resultViewed}=useGenerationJob();
+  if(!activeJob) return null;
+
+  const terminal=activeJob.status==='succeeded'||activeJob.status==='partial'||activeJob.status==='failed';
+  if(terminal&&resultViewed) return null;
+
+  const state=terminal?'complete':'running';
+  return (
+    <span
+      className={`product-top-navigation__job-dot product-top-navigation__job-dot--${state}`}
+      data-state={state}
+      data-testid="generation-job-indicator"
+    >
+      <span className="product-top-navigation__job-dot-text">
+        {state==='running'?'素材正在生成':'素材生成完成'}
+      </span>
+    </span>
+  );
 }
 
 export function ProductTopNavigation(){
@@ -34,6 +57,7 @@ export function ProductTopNavigation(){
         to="/history"
       >
         <ClockCounterClockwise aria-hidden="true" size={20} weight="bold" />
+        <GenerationJobIndicator />
       </Link>
     </header>
   );
