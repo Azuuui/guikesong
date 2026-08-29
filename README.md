@@ -13,6 +13,55 @@ npm run dev
 
 真实模型模式：在 `.env` 配置 `COPY_API_KEY` 与 `IMAGE_API_KEY` 后运行 `PROVIDER_MODE=real npm run dev`。文案走智谱 GLM，图片走第三方中转；中转方可以看到提示词与图片内容，请勿提交敏感素材。密钥仅保存在服务端，不会进入前端构建产物。
 
+## 技术栈
+
+### 前端
+
+| 类别 | 技术选型 | 说明 |
+| --- | --- | --- |
+| UI 框架 | React 19 | 组件化界面，配合 React Router DOM 7 实现多页面路由 |
+| 语言 | TypeScript 5.9 | 全仓严格类型检查 |
+| 构建工具 | Vite 7 | 开发热更新与生产构建 |
+| 图标 | Phosphor Icons React | 统一视觉图标体系 |
+| 本地历史 | idb（IndexedDB） | 结果与参考图副本按工作流存本机，保留最近 20 条 |
+| 素材打包 | JSZip | 前端生成包含文案与图片的 ZIP 素材包 |
+| 前端测试 | Vitest + Testing Library + jsdom + fake-indexeddb | 组件渲染与 IndexedDB 相关逻辑测试 |
+
+前端按 `app / pages / features / components / config / styles` 分层组织，API 层统一做响应校验、30s 超时与业务错误白名单传递。
+
+### 后端
+
+| 类别 | 技术选型 | 说明 |
+| --- | --- | --- |
+| 运行环境 | Node.js + tsx | TypeScript 源码直接运行，无需预编译 |
+| Web 框架 | Express 5 | API 服务与静态资源托管 |
+| 文件上传 | multer | 参考图 / 产品图 multipart 上传 |
+| 图片处理 | sharp | 图片校验与格式处理 |
+| 参数校验 | Zod 4 | 请求体与 Provider 响应结构校验 |
+| 环境配置 | dotenv | `.env` 管理密钥与运行模式 |
+| API 测试 | supertest | 后端接口集成测试 |
+
+后端按 `config / http / routes / services / storage / workflows / providers` 模块化组织，支持模板注册、双工作流编排与部分成功聚合。
+
+### AI 模型层
+
+| 能力 | 模型 | 提供方 |
+| --- | --- | --- |
+| 文案生成 | GLM（glm-5.3-flash） | 智谱 AI 开放平台 |
+| 图像生成 | gpt-image-2 | 第三方 API 中转站 |
+| 视觉分析 | gpt-5.5 | 第三方 API 中转站 |
+
+Provider 层提供 Mock / Real 双模式：Mock 无需任何密钥即可跑通全流程；Real 模式通过 `.env` 切换，密钥仅存于服务端。
+
+### 工程化
+
+| 类别 | 技术选型 |
+| --- | --- |
+| 代码规范 | ESLint + typescript-eslint |
+| 单元 / 集成测试 | Vitest（前端组件 + 后端 API 共 236+ 用例） |
+| 并行启动 | concurrently（一键同时跑前后端） |
+| 版本管理 | Git / GitHub |
+
 ## 双工作流
 
 | 模板 | 输入 | 输出 |
