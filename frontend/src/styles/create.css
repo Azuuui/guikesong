@@ -35,7 +35,9 @@
   text-decoration: none;
 }
 
-.create-page__change-template--disabled {
+.create-page .create-page__change-template--disabled.button--secondary,
+.create-page .create-page__change-template--disabled.button--secondary:hover,
+.create-page .create-page__change-template--disabled.button--secondary:focus-visible {
   color: var(--color-ink-400);
   background: var(--color-surface-100);
   border-color: var(--color-border-200);
