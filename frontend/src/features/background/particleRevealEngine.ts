@@ -54,6 +54,11 @@ type ImageRegion=RevealTiming&{
 
 const BACKGROUND_COLOR='#fafafa';
 const REVEAL_FADE_REDUCTION=0.96;
+export const PARTICLE_REVEAL_TIMING={
+  revealIn:1.2,
+  hold:2,
+  revealOut:2.4,
+} as const;
 const TWO_PI=Math.PI*2;
 const PARTICLE_SEED_SALT=0x7f4a7c15;
 const IMAGE_SEED_SALT=0x51ed270b;
@@ -250,9 +255,7 @@ export function createParticleRevealEngine({
 
       const timing:RevealTiming={
         flow:4+random()*2,
-        revealIn:1.2,
-        hold:1.5+random()*0.5,
-        revealOut:1.2,
+        ...PARTICLE_REVEAL_TIMING,
         phaseOffset:Math.floor(index/3)*9+(index%3)*3,
       };
 

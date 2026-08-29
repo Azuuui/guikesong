@@ -3,6 +3,7 @@ import {
   createParticleRevealEngine,
   createSeededRandom,
   getRevealStrength,
+  PARTICLE_REVEAL_TIMING,
   type AnimationScheduler,
 } from './particleRevealEngine';
 import {
@@ -58,11 +59,13 @@ describe('particle reveal configuration',()=>{
   });
 
   it('按流动、显入、停留和显出计算强度',()=>{
-    const timing={flow:4,revealIn:1.2,hold:1.5,revealOut:1.2,phaseOffset:0};
+    const timing={flow:4,...PARTICLE_REVEAL_TIMING,phaseOffset:0};
+    expect(PARTICLE_REVEAL_TIMING).toEqual({revealIn:1.2,hold:2,revealOut:2.4});
     expect(getRevealStrength(timing,2)).toBe(0);
     expect(getRevealStrength(timing,4.6)).toBeCloseTo(0.5,5);
     expect(getRevealStrength(timing,5.4)).toBe(1);
-    expect(getRevealStrength(timing,7.3)).toBeCloseTo(0.5,5);
+    expect(getRevealStrength(timing,7.4)).toBeCloseTo(0.986,2);
+    expect(getRevealStrength(timing,8.4)).toBeCloseTo(0.5,5);
   });
 });
 
