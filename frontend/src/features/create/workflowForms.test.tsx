@@ -290,18 +290,21 @@ describe('XhsAtlasCreateForm', () => {
     expect(props.onComplete).not.toHaveBeenCalled();
   });
 
-  it.each(['2', '36'])('选题数量 %s 允许提交', async (count) => {
+  it.each(['2', '36', '两个', '十二种'])('选题数量 %s 允许提交', async (quantity) => {
     const user = userEvent.setup();
     const result = makeXhsAtlasResult();
     generateAssetsMock.mockResolvedValue(result);
     const props = renderAtlasForm();
 
-    await user.type(screen.getByLabelText('图鉴选题'), `贵阳的${count}种美食`);
+    const topic = quantity.endsWith('个') || quantity.endsWith('种')
+      ? `贵阳的${quantity}美食`
+      : `贵阳的${quantity}种美食`;
+    await user.type(screen.getByLabelText('图鉴选题'), topic);
     await submitAtlas(user);
 
     await waitFor(() => expect(props.onComplete).toHaveBeenCalled());
     expect(generateAssetsMock).toHaveBeenCalledWith(
-      {workflowId: 'xhs-atlas', topic: `贵阳的${count}种美食`, referenceAssetIds: []},
+      {workflowId: 'xhs-atlas', topic, referenceAssetIds: []},
       expect.any(AbortSignal),
     );
     expect(uploadReferenceFilesMock).not.toHaveBeenCalled();

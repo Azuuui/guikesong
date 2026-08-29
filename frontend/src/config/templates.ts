@@ -1,8 +1,8 @@
 import type {WorkflowId} from '../../../shared/workflows';
-import ipPreviewUrl from '../assets/motion/particle-reveal/reveal-08.png';
-import atlasPreviewUrl from '../assets/motion/particle-reveal/reveal-02.png';
-import travelGuidePreviewUrl from '../assets/motion/particle-reveal/reveal-05.png';
-import ugcPreviewUrl from '../assets/motion/particle-reveal/reveal-09.png';
+import ipPreviewUrl from '../assets/template-previews/original-ip-product.webp';
+import atlasPreviewUrl from '../assets/template-previews/xhs-atlas.webp';
+import travelGuidePreviewUrl from '../assets/template-previews/travel-guide.webp';
+import ugcPreviewUrl from '../assets/template-previews/ugc-photo-campaign.webp';
 
 export type TemplateConfig = {
   id: WorkflowId;
@@ -26,7 +26,7 @@ export const TEMPLATE_CONFIGS: readonly TemplateConfig[] = [
     previewVariant: 'xhs-atlas',
     previewImageUrl: atlasPreviewUrl,
     suitableFor: ['城市文化图鉴', '目的地种草', '主题清单整理'],
-    inputAdvice: '选题需包含 2～36 的数量，例如“贵阳的12种美食”。',
+    inputAdvice: '选题需包含 2～36 的数量，例如“贵阳的12种美食”或“两个贵州景点”。',
     examplePrompt: '贵阳的12种夏日美食',
     referenceAdvice: '最多可选 4 张参考图，只影响画面视觉，不改变清单事实。',
     outputs: '图鉴封面与正文页图片、3 个候选标题、可直接发布的正文与标签、完整清单 JSON。',

@@ -266,6 +266,14 @@ describe('normalizeTopic', () => {
     });
   });
 
+  it.each([
+    ['两个贵州景点', 2, '个'],
+    ['十二种贵阳美食', 12, '种'],
+    ['三十六处打卡地', 36, '处'],
+  ] as const)('提取中文数量：%s', (topic, count, measureWord) => {
+    expect(normalizeTopic(topic)).toEqual({topic, count, measureWord, warnings: []});
+  });
+
   it('无量词时 measureWord 为空字符串', () => {
     expect(normalizeTopic('必看的12影片').measureWord).toBe('');
   });
@@ -273,6 +281,7 @@ describe('normalizeTopic', () => {
   it('无数字或数量小于 2 时抛业务错误', () => {
     expect(() => normalizeTopic('贵阳的美食')).toThrow('选题需包含数量');
     expect(() => normalizeTopic('只有1种')).toThrow('选题数量至少为 2');
+    expect(() => normalizeTopic('一个贵州景点')).toThrow('选题数量至少为 2');
   });
 
   it('超过 36 时钳制为 36 并改写标题数字', () => {
@@ -283,6 +292,11 @@ describe('normalizeTopic', () => {
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain('48');
     expect(result.warnings[0]).toContain('36');
+
+    const chineseResult = normalizeTopic('贵州的四十八处美景');
+    expect(chineseResult.count).toBe(36);
+    expect(chineseResult.topic).toBe('贵州的36处美景');
+    expect(chineseResult.measureWord).toBe('处');
   });
 });
 

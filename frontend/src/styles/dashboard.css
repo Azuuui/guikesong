@@ -89,7 +89,7 @@
 .home-template-rail__heading{
   display:flex;
   align-items:baseline;
-  justify-content:flex-start;
+  justify-content:center;
   margin-bottom:8px;
 }
 
@@ -102,9 +102,9 @@
 
 .home-template-rail__track{
   display:grid;
-  grid-auto-columns:clamp(220px,20vw,270px);
+  grid-auto-columns:clamp(150px,14vw,190px);
   grid-auto-flow:column;
-  justify-content:start;
+  justify-content:center;
   gap:16px;
   overflow-x:auto;
   padding:2px 2px 12px;
@@ -115,7 +115,7 @@
 
 .home-template-card{
   min-width:0;
-  scroll-snap-align:start;
+  scroll-snap-align:center;
 }
 
 .home-template-card__heading{
@@ -178,7 +178,12 @@
   box-shadow:0 2px 8px rgb(20 20 20 / 16%);
 }
 
-.home-template-card .template-preview{aspect-ratio:16/9}
+.home-template-card .template-preview{height:auto}
+.home-template-card .template-preview--original-ip,
+.home-template-card .template-preview--ugc-photo-campaign{aspect-ratio:3/4}
+.home-template-card .template-preview--xhs-atlas,
+.home-template-card .template-preview--travel-guide{aspect-ratio:2/3}
+.home-template-card .template-preview__image{object-position:50% 50%}
 
 @media (max-width:767px){
   .dashboard-page--creative-home{min-height:calc(100dvh - 60px);padding:40px 0 18px}
@@ -190,7 +195,8 @@
   .dashboard-page__composer-note{margin-top:8px;font-size:11px;line-height:17px}
   .home-template-rail{padding-top:40px}
   .home-template-rail__heading{margin-bottom:6px}
-  .home-template-rail__track{grid-auto-columns:min(62vw,240px);gap:14px;margin-right:-16px}
+  .home-template-rail__heading{justify-content:flex-start}
+  .home-template-rail__track{grid-auto-columns:min(48vw,180px);justify-content:start;gap:14px;margin-right:-16px}
 }
 
 @media (prefers-reduced-motion:reduce){

@@ -20,6 +20,14 @@ describe('parseGenerateRequest', () => {
     })).toMatchObject({workflowId: 'xhs-atlas', topic: '贵阳的12种美食'});
   });
 
+  it.each(['两个贵州景点', '十二种贵阳美食', '三十六处打卡地'])('识别中文图鉴数量：%s', topic => {
+    expect(parseGenerateRequest({
+      workflowId: 'xhs-atlas',
+      topic,
+      referenceAssetIds: [],
+    })).toMatchObject({workflowId: 'xhs-atlas', topic});
+  });
+
   it('选题无数字时报错', () => {
     expect(() => parseGenerateRequest({
       workflowId: 'xhs-atlas',
@@ -32,6 +40,11 @@ describe('parseGenerateRequest', () => {
     expect(() => parseGenerateRequest({
       workflowId: 'xhs-atlas',
       topic: '贵阳的1种美食',
+      referenceAssetIds: [],
+    })).toThrow('选题数量至少为 2');
+    expect(() => parseGenerateRequest({
+      workflowId: 'xhs-atlas',
+      topic: '一个贵州景点',
       referenceAssetIds: [],
     })).toThrow('选题数量至少为 2');
   });

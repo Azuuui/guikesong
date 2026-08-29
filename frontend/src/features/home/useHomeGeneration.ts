@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {GenerateRequest,IpProfilePublicOutput,ReferenceAsset,WorkflowId} from '../../../../shared/types';
 import {travelGuideDestinationError} from '../../../../shared/workflowSchemas';
+import {findXhsAtlasTopicQuantity} from '../../../../shared/xhsAtlasTopicQuantity';
 import {useGenerationJob} from '../generation/GenerationJobProvider';
 import {ApiError,getActiveIpProfile,uploadReferenceFiles} from '../generation/api';
 import type {HomeAttachment as HomeComposerAttachment} from './HomeComposer';
@@ -44,9 +45,9 @@ export type HomeAttachment=HomeComposerAttachment&{file:File};
 function validationMessage(workflowId:WorkflowId,prompt:string,files:readonly HomeAttachment[]):string|undefined{
   if(prompt.trim().length<2) return '请至少输入 2 个字。';
   if(workflowId==='xhs-atlas'){
-    const count=prompt.match(/\d+/)?.[0];
-    if(!count) return '图鉴选题需包含数量，如“贵阳的12种美食”。';
-    if(Number(count)<2) return '图鉴选题数量至少为 2。';
+    const quantity=findXhsAtlasTopicQuantity(prompt);
+    if(!quantity) return '图鉴选题需包含数量，如“贵阳的12种美食”。';
+    if(quantity.count<2) return '图鉴选题数量至少为 2。';
     if(files.length>4) return '小红书图鉴最多添加 4 张参考图。';
     return;
   }

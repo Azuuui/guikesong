@@ -12,10 +12,10 @@
 .template-preview{width:100%;height:100%;overflow:hidden;background:var(--color-surface-100)}
 .template-preview__image{width:100%;height:100%;object-fit:cover;transition:transform 260ms var(--ease-standard),filter 180ms var(--ease-standard)}
 .template-card:hover .template-preview__image,.home-template-card__select:hover .template-preview__image{transform:scale(1.018);filter:saturate(1.04)}
-.template-preview--original-ip .template-preview__image{object-position:50% 42%}
-.template-preview--xhs-atlas .template-preview__image{object-position:50% 52%}
-.template-preview--travel-guide .template-preview__image{object-position:50% 38%}
-.template-preview--ugc-photo-campaign .template-preview__image{object-position:50% 46%}
+.template-preview--original-ip .template-preview__image{object-position:50% 28%}
+.template-preview--xhs-atlas .template-preview__image{object-position:50% 10%}
+.template-preview--travel-guide .template-preview__image{object-position:50% 8%}
+.template-preview--ugc-photo-campaign .template-preview__image{object-position:50% 10%}
 .template-card__content{display:grid;gap:14px;padding:16px}
 .template-card__heading h2,.template-card__heading h3{margin:0 0 5px;color:var(--color-ink-900);font-size:18px;line-height:25px}
 .template-card__heading p{font-size:12px;line-height:19px}

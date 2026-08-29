@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import {WORKFLOW_IDS, type GenerateRequest, type WorkflowId} from './workflows';
+import {findXhsAtlasTopicQuantity} from './xhsAtlasTopicQuantity';
 
 /** 请求级业务校验错误：消息面向用户，code 面向前端逻辑。 */
 export class WorkflowValidationError extends Error {
@@ -59,11 +60,11 @@ function firstIssueMessage(error: z.ZodError, fallback: string): string {
 }
 
 function assertTopicQuantity(topic: string): void {
-  const match = topic.match(/\d+/);
+  const match = findXhsAtlasTopicQuantity(topic);
   if (!match) {
     throw new WorkflowValidationError('选题需包含数量，如"贵阳的12种美食"', 'TOPIC_MISSING_QUANTITY');
   }
-  if (Number(match[0]) < 2) {
+  if (match.count < 2) {
     throw new WorkflowValidationError('选题数量至少为 2', 'TOPIC_BELOW_MIN');
   }
 }

@@ -1,6 +1,7 @@
 import {CheckCircle, Info, WarningCircle} from '@phosphor-icons/react';
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import type {ReferenceAsset} from '../../../../../shared/types';
+import {findXhsAtlasTopicQuantity} from '../../../../../shared/xhsAtlasTopicQuantity';
 import {Button} from '../../../components/Button';
 import type {TemplateConfig} from '../../../config/templates';
 import {generateAssets, uploadReferenceFiles} from '../../generation/api';
@@ -26,9 +27,9 @@ export type XhsAtlasCreateFormProps = WorkflowFormProps & {
 /** 与后端 parseGenerateRequest 一致的选题校验：必须包含至少 2 的数量；超过 36 由工作流钳制。 */
 function validateTopic(topic: string): string | undefined {
   if (topic.length === 0) return '请输入选题';
-  const match = topic.match(/\d+/);
+  const match = findXhsAtlasTopicQuantity(topic);
   if (!match) return '选题需包含数量，如"贵阳的12种美食"';
-  if (Number(match[0]) < 2) return '选题数量至少为 2';
+  if (match.count < 2) return '选题数量至少为 2';
   return undefined;
 }
 

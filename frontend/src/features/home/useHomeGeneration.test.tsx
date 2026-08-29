@@ -114,6 +114,17 @@ describe('useHomeGeneration',()=>{
     await waitFor(()=>expect(result.current.busy).toBe(false));
   });
 
+  it('图鉴从主页识别中文数量并创建任务',async()=>{
+    const {result}=setup();
+    act(()=>result.current.setPrompt('两个贵州景点'));
+    await act(async()=>result.current.submit());
+
+    expect(createGenerationJobMock).toHaveBeenCalledWith({
+      workflowId:'xhs-atlas',topic:'两个贵州景点',referenceAssetIds:[],
+    });
+    await waitFor(()=>expect(result.current.busy).toBe(false));
+  });
+
   it('原创 IP 没有锁定档案时保留输入与产品图进入配置页',async()=>{
     const {result,navigate}=setup({},'original-ip');
     const file=new File(['product'],'product.png',{type:'image/png'});
